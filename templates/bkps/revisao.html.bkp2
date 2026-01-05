@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Monitor | Revisão</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --sidebar-width: 260px;
+            --primary-color: #4F46E5;
+            --bg-color: #F3F4F6;
+            --text-primary: #111827;
+            --text-secondary: #6B7280;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* --- Sidebar Styling --- */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: white;
+            border-right: 1px solid #E5E7EB;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            z-index: 1000;
+        }
+
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 40px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            font-weight: 500;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .nav-link:hover {
+            background-color: #F9FAFB;
+            color: var(--primary-color);
+        }
+
+        .nav-link.active {
+            background-color: #EEF2FF;
+            color: var(--primary-color);
+        }
+
+        .nav-link i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            background: #F8FAFC;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .qr-thumbnail {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #E2E8F0;
+            padding: 5px;
+            background: white;
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 32px;
+        }
+
+        /* --- KPI Cards --- */
+        .kpi-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid #E5E7EB;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            height: 100%;
+        }
+
+        .kpi-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* --- Table Card --- */
+        .table-card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #E5E7EB;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .table-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            background-color: #F9FAFB;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 16px 24px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+        .table td {
+            padding: 16px 24px;
+            vertical-align: middle;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .fw-bold-dark {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* --- Status Badges (Soft UI) --- */
+        .badge-soft {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .badge-soft-success {
+            background-color: #ECFDF5;
+            color: #059669;
+        }
+
+        .badge-soft-warning {
+            background-color: #FFFBEB;
+            color: #D97706;
+        }
+        
+        .badge-soft-danger {
+            background-color: #FEF2F2;
+            color: #DC2626;
+        }
+
+        /* --- Linha com Destaque --- */
+        .linha-alerta {
+            background: #FFFBEB !important;
+        }
+        
+        .linha-critico {
+            background: #FEF2F2 !important;
+        }
+
+        /* --- Floating Button --- */
+        .btn-float {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            padding: 16px 32px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            z-index: 999;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: #4338CA;
+            border-color: #4338CA;
+        }
+
+        /* --- Modais --- */
+        .modal-content {
+            border-radius: 16px;
+            border: none;
+        }
+
+        .modal-header {
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 992px) {
+            .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+            .main-content { margin-left: 0; }
+            .btn-float { bottom: 16px; right: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="brand">
+            <i class="fas fa-bolt"></i> ENERGY.io
+        </div>
+
+        <div class="nav flex-column">
+            <a href="/" class="nav-link">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            <a href="/registrar" class="nav-link">
+                <i class="fas fa-plus-circle"></i> Nova Leitura
+            </a>
+            <a href="/revisao" class="nav-link active d-flex justify-content-between">
+                <span><i class="fas fa-clipboard-check"></i> Revisão</span>
+                {% if dados_revisao|length > 0 %}
+                <span class="badge bg-danger rounded-pill">{{ dados_revisao|length }}</span>
+                {% endif %}
+            </a>
+            <a href="/analise" class="nav-link">
+                <i class="fas fa-chart-pie"></i> Relatórios
+            </a>
+            <a href="/admin/quadros" class="nav-link">
+                <i class="fas fa-cog"></i> Configurações
+            </a>
+        </div>
+
+        <div class="sidebar-footer">
+            <img src="{{ qrcode_img }}" alt="QR Code" class="qr-thumbnail">
+            <div style="font-size: 0.75rem; color: #64748B;">
+                Acesso Mobile
+            </div>
+            <div style="font-size: 0.7rem; font-family: monospace; color: #94A3B8; margin-top: 4px;">
+                {{ ip_local }}
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        
+        <div class="d-flex justify-content-between align-items-center mb-5">
+            <div>
+                <h2 class="fw-bold mb-1" style="color: var(--text-primary);">Revisão de Leituras</h2>
+                <p class="text-muted mb-0">Confira os rascunhos antes de consolidar</p>
+            </div>
+        </div>
+
+        <!-- Alertas -->
+        <div id="alertContainer"></div>
+
+        {% if dados_revisao %}
+        <!-- KPIs de Revisão -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-6 col-lg-3">
+                <div class="kpi-card">
+                    <div class="kpi-label">RASCUNHOS PENDENTES</div>
+                    <div class="kpi-value">{{ dados_revisao|length }}</div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="kpi-card">
+                    <div class="kpi-label">DENTRO DO NORMAL</div>
+                    <div class="kpi-value text-success">{{ dados_revisao|selectattr('status_desvio', 'equalto', 'normal')|list|length }}</div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="kpi-card">
+                    <div class="kpi-label">COM ALERTA</div>
+                    <div class="kpi-value text-warning">{{ dados_revisao|selectattr('status_desvio', 'equalto', 'alerta')|list|length }}</div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="kpi-card">
+                    <div class="kpi-label">CRÍTICOS</div>
+                    <div class="kpi-value text-danger">{{ dados_revisao|selectattr('status_desvio', 'equalto', 'critico')|list|length }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabela de Conferência -->
+        <div class="table-card">
+            <div class="table-header">
+                <h5 class="mb-0 fw-bold" style="color: var(--text-primary);">Conferência de Leituras</h5>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Quadro</th>
+                            <th>Localização</th>
+                            <th class="text-end">Último Oficial (kWh)</th>
+                            <th class="text-end">Lido (kWh)</th>
+                            <th class="text-end">Consumo (kWh)</th>
+                            <th class="text-end">Média 90d (kWh)</th>
+                            <th class="text-center">Desvio</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in dados_revisao %}
+                        <tr class="{% if item.status_desvio == 'alerta' %}linha-alerta{% elif item.status_desvio == 'critico' %}linha-critico{% endif %}" id="linha-{{ item.id }}">
+                            <td>
+                                <div class="fw-bold-dark">{{ item.quadro_nome }}</div>
+                                {% if item.alerta_reset %}
+                                <span class="badge badge-soft-warning mt-1">
+                                    <i class="fas fa-exclamation-triangle"></i> Reset
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.quadro_localizacao }}</td>
+                            <td class="text-end text-muted">
+                                {{ "%.2f"|format(item.ultimo_valor_oficial) }}
+                                <br>
+                                <small class="text-muted" style="font-size: 0.75rem;">{{ item.ultima_data_oficial }}</small>
+                            </td>
+                            <td class="text-end fw-bold-dark">{{ "%.2f"|format(item.valor_leitura) }}</td>
+                            <td class="text-end">
+                                <span class="badge badge-soft-success" style="font-size: 0.9rem;">
+                                    {{ "%.2f"|format(item.consumo_provisorio) }}
+                                </span>
+                            </td>
+                            <td class="text-end text-muted">{{ "%.2f"|format(item.media_90_dias) }}</td>
+                            <td class="text-center">
+                                {% if item.desvio_percentual > 0 %}
+                                <span class="badge badge-soft-warning">
+                                    <i class="fas fa-arrow-up"></i> +{{ "%.1f"|format(item.desvio_percentual) }}%
+                                </span>
+                                {% elif item.desvio_percentual < 0 %}
+                                <span class="badge badge-soft-warning">
+                                    <i class="fas fa-arrow-down"></i> {{ "%.1f"|format(item.desvio_percentual) }}%
+                                </span>
+                                {% else %}
+                                <span class="badge badge-soft-success">--</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.status_desvio == 'critico' %}
+                                <span class="badge badge-soft-danger">
+                                    <i class="fas fa-exclamation-circle"></i> Crítico
+                                </span>
+                                {% elif item.status_desvio == 'alerta' %}
+                                <span class="badge badge-soft-warning">
+                                    <i class="fas fa-exclamation-triangle"></i> Alerta
+                                </span>
+                                {% else %}
+                                <span class="badge badge-soft-success">
+                                    <i class="fas fa-check-circle"></i> Normal
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="abrirModalEditar({{ item.id }}, '{{ item.quadro_nome }}', {{ item.valor_leitura }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Botão Flutuante de Consolidação -->
+        <button class="btn btn-success btn-float" onclick="confirmarConsolidacao()">
+            <i class="fas fa-check-double me-2"></i> Finalizar Processo
+        </button>
+
+        {% else %}
+        <!-- Nenhum rascunho -->
+        <div class="table-card">
+            <div class="p-5 text-center">
+                <i class="fas fa-inbox fa-4x mb-3 opacity-25" style="color: var(--text-secondary);"></i>
+                <h5 class="text-muted">Nenhum rascunho pendente de revisão</h5>
+                <p class="text-muted">Todas as leituras foram consolidadas.</p>
+                <a href="/registrar" class="btn btn-primary mt-3">
+                    <i class="fas fa-plus me-2"></i> Registrar Leituras
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+    </main>
+
+    <!-- Modal: Editar Rascunho -->
+    <div class="modal fade" id="modalEditarRascunho" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit"></i> Editar Leitura</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="formEditarRascunho">
+                    <input type="hidden" id="edit_rascunho_id">
+                    <div class="modal-body">
+                        <h6 class="mb-3" id="edit_quadro_nome"></h6>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Valor da Leitura (kWh)</label>
+                            <input type="number" class="form-control" id="edit_valor_leitura" 
+                                   name="valor_leitura" step="0.01" required>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> 
+                            O consumo provisório será recalculado automaticamente.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Salvar Alteração
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Confirmar Consolidação -->
+    <div class="modal fade" id="modalConfirmarConsolidacao" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-check-double"></i> Confirmar Finalização</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6>Tem certeza que deseja finalizar o processo?</h6>
+                    <p class="text-muted">
+                        Todas as leituras em rascunho serão movidas para o registro definitivo 
+                        e não poderão mais ser editadas.
+                    </p>
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i> 
+                        <strong>{{ dados_revisao|length }}</strong> leitura(s) será(ão) consolidada(s).
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarConsolidacao">
+                        <i class="fas fa-check"></i> Confirmar e Finalizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        const modalEditarRascunho = new bootstrap.Modal(document.getElementById('modalEditarRascunho'));
+        const modalConfirmarConsolidacao = new bootstrap.Modal(document.getElementById('modalConfirmarConsolidacao'));
+        
+        function abrirModalEditar(id, nome, valor) {
+            document.getElementById('edit_rascunho_id').value = id;
+            document.getElementById('edit_quadro_nome').textContent = nome;
+            document.getElementById('edit_valor_leitura').value = valor;
+            modalEditarRascunho.show();
+        }
+        
+        document.getElementById('formEditarRascunho').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const id = document.getElementById('edit_rascunho_id').value;
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch(`/revisao/editar/${id}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    modalEditarRascunho.hide();
+                    mostrarAlerta('success', data.mensagem);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    mostrarAlerta('danger', data.erro);
+                }
+            } catch (error) {
+                mostrarAlerta('danger', 'Erro de conexão com o servidor');
+            }
+        });
+        
+        function confirmarConsolidacao() {
+            modalConfirmarConsolidacao.show();
+        }
+        
+        document.getElementById('btnConfirmarConsolidacao').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/consolidar', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    modalConfirmarConsolidacao.hide();
+                    mostrarAlerta('success', data.mensagem);
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else {
+                    mostrarAlerta('danger', data.erro);
+                }
+            } catch (error) {
+                mostrarAlerta('danger', 'Erro de conexão com o servidor');
+            }
+        });
+        
+        function mostrarAlerta(tipo, mensagem) {
+            const alertContainer = document.getElementById('alertContainer');
+            const icones = {
+                'success': 'check-circle',
+                'danger': 'exclamation-circle',
+                'warning': 'exclamation-triangle'
+            };
+            
+            alertContainer.innerHTML = `
+                <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+                    <i class="fas fa-${icones[tipo]}"></i> ${mensagem}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

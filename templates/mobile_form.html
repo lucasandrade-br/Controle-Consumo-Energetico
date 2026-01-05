@@ -1,0 +1,643 @@
+{% extends "base_mobile.html" %}
+{% block title %}Energy Monitor | Registro Mobile{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 0;
+        overflow-x: hidden;
+    }
+    
+    .mobile-header {
+        background: white;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .quadro-card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-left: 5px solid #cbd5e1;
+    }
+    
+    .quadro-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    }
+    
+    .quadro-card.cadastrado {
+        border-left-color: #10b981;
+        background: #f0fdf4;
+    }
+    
+    .quadro-card.pendente {
+        border-left-color: #f59e0b;
+    }
+    
+    .quadro-nome {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #1e293b;
+        margin-bottom: 5px;
+    }
+    
+    .quadro-localizacao {
+        font-size: 0.9rem;
+        color: #64748b;
+        margin-bottom: 10px;
+    }
+    
+    .quadro-status {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .badge-cadastrado {
+        background: #10b981;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    
+    .badge-pendente {
+        background: #f59e0b;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    
+    .valor-cadastrado {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #059669;
+    }
+    
+    /* Modal de Registro */
+    .modal-registro .modal-dialog {
+        margin: 0;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        max-width: 100%;
+        max-height: 100vh;
+    }
+    
+    .modal-registro .modal-content {
+        border-radius: 20px 20px 0 0;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+    
+    .modal-registro .modal-body {
+        padding: 15px;
+    }
+    
+    .valor-display {
+        background: #f1f5f9;
+        border: 2px solid #4f46e5;
+        border-radius: 12px;
+        padding: 15px 10px;
+        font-size: 1.8rem;
+        font-weight: bold;
+        text-align: center;
+        color: #1e293b;
+        margin-bottom: 15px;
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        word-break: break-all;
+    }
+    
+    /* Teclado Numérico */
+    .keyboard {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 10px;
+    }
+    
+    .keyboard .btn-key {
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 18px 10px;
+        font-size: 1.4rem;
+        font-weight: bold;
+        color: #1e293b;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        min-height: 60px;
+    }
+    
+    .keyboard .btn-key:active {
+        transform: scale(0.95);
+        background: #f1f5f9;
+    }
+    
+    .keyboard .btn-backspace {
+        background: #fee2e2;
+        color: #dc2626;
+        border-color: #fca5a5;
+    }
+    
+    .keyboard .btn-clear {
+        background: #fef3c7;
+        color: #d97706;
+        border-color: #fde68a;
+    }
+    
+    .keyboard .btn-confirm {
+        background: #4f46e5;
+        color: white;
+        border-color: #4f46e5;
+        grid-column: span 3;
+        font-size: 1.1rem;
+        padding: 18px 10px;
+    }
+    
+    /* Overlay de Bloqueio */
+    .overlay-bloqueio {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(30, 41, 59, 0.95);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        padding: 40px;
+        text-align: center;
+    }
+    
+    .overlay-bloqueio i {
+        font-size: 5rem;
+        margin-bottom: 30px;
+        opacity: 0.7;
+    }
+    
+    .overlay-bloqueio h2 {
+        font-size: 1.8rem;
+        margin-bottom: 15px;
+    }
+    
+    .overlay-bloqueio p {
+        font-size: 1.2rem;
+        opacity: 0.8;
+    }
+    
+    .spinner-border {
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Overlay de Bloqueio (visível quando sessão inativa) -->
+<div id="overlayBloqueio" class="overlay-bloqueio" style="display: none;">
+    <i class="fas fa-lock"></i>
+    <h2>Aguarde o Supervisor</h2>
+    <p>A sessão de leitura ainda não foi iniciada.</p>
+    <p>Quando o supervisor ativar, você poderá registrar as leituras.</p>
+    <div class="spinner-border text-light mt-3" role="status"></div>
+</div>
+
+<!-- Header -->
+<div class="mobile-header">
+    <div class="d-flex align-items-center justify-content-between">
+        <div>
+            <h4 class="mb-1" style="color: #1e293b;">
+                <i class="fas fa-bolt" style="color: #667eea;"></i> Leituras
+            </h4>
+            <p class="text-muted mb-0" style="font-size: 0.9rem;">
+                <span id="statusIndicador">Carregando...</span>
+            </p>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" onclick="recarregarQuadros()">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Container de Alertas -->
+<div id="alertContainer" style="padding: 0 20px;"></div>
+
+<!-- Lista de Quadros -->
+<div id="listaQuadros" style="padding: 0 20px 20px;">
+    <div class="text-center py-5">
+        <div class="spinner-border text-light" role="status"></div>
+        <p class="text-white mt-3">Carregando quadros...</p>
+    </div>
+</div>
+
+<!-- Modal de Registro -->
+<div class="modal fade modal-registro" id="modalRegistro" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold" id="modalQuadroNome"></h5>
+                    <small class="text-muted" id="modalQuadroLoc"></small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Display do Valor -->
+                <div class="valor-display" id="valorDisplay">0</div>
+                
+                <!-- Info se for edição -->
+                <div id="infoEdicao" class="alert alert-info" style="display: none;">
+                    <i class="fas fa-info-circle"></i> Editando valor cadastrado
+                </div>
+                
+                <!-- Teclado Numérico -->
+                <div class="keyboard">
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('1')">1</button>
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('2')">2</button>
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('3')">3</button>
+                    
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('4')">4</button>
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('5')">5</button>
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('6')">6</button>
+                    
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('7')">7</button>
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('8')">8</button>
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('9')">9</button>
+                    
+                    <button type="button" class="btn btn-key btn-clear" onclick="limparValor()">
+                        <i class="fas fa-eraser"></i>
+                    </button>
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('0')">0</button>
+                    <button type="button" class="btn btn-key btn-backspace" onclick="apagarDigito()">
+                        <i class="fas fa-backspace"></i>
+                    </button>
+                    
+                    <button type="button" class="btn btn-key" onclick="adicionarDigito('.')">.</button>
+                    <button type="button" class="btn btn-key btn-confirm" onclick="confirmarRegistro()">
+                        <i class="fas fa-check me-2"></i> CONFIRMAR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Reset -->
+<div class="modal fade" id="modalConfirmReset" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle"></i> Reset Detectado
+                </h5>
+            </div>
+            <div class="modal-body">
+                <p><strong>O valor informado é MENOR que a leitura anterior!</strong></p>
+                <p id="modalResetMensagem"></p>
+                <hr>
+                <p class="text-danger">
+                    <i class="fas fa-redo"></i> 
+                    O medidor zerou? Confirme para registrar com alerta de RESET.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="voltarEdicao()">
+                    <i class="fas fa-times"></i> Corrigir
+                </button>
+                <button type="button" class="btn btn-warning" onclick="confirmarReset()">
+                    <i class="fas fa-check"></i> Confirmar Reset
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ========================================
+    // VARIÁVEIS GLOBAIS
+    // ========================================
+    
+    let quadros = [];
+    let quadroSelecionado = null;
+    let valorAtual = '0';
+    let sessaoAtiva = false;
+    let pollingInterval = null;
+    let dadosReset = null;
+    
+    const modalRegistro = new bootstrap.Modal(document.getElementById('modalRegistro'));
+    const modalReset = new bootstrap.Modal(document.getElementById('modalConfirmReset'));
+    
+    // ========================================
+    // INICIALIZAÇÃO
+    // ========================================
+    
+    verificarSessao();
+    carregarQuadros();
+    iniciarPolling();
+    
+    // ========================================
+    // CONTROLE DE SESSÃO E POLLING
+    // ========================================
+    
+    async function verificarSessao() {
+        try {
+            const response = await fetch('/api/sessao/status');
+            const data = await response.json();
+            
+            sessaoAtiva = data.ativa;
+            
+            const overlay = document.getElementById('overlayBloqueio');
+            const statusIndicador = document.getElementById('statusIndicador');
+            
+            if (data.ativa) {
+                overlay.style.display = 'none';
+                statusIndicador.innerHTML = '<i class="fas fa-circle me-1" style="color: #10b981;"></i> Sessão Ativa';
+            } else {
+                overlay.style.display = 'flex';
+                statusIndicador.innerHTML = '<i class="fas fa-circle me-1" style="color: #ef4444;"></i> Sessão Inativa';
+            }
+        } catch (error) {
+            console.error('Erro ao verificar sessão:', error);
+        }
+    }
+    
+    function iniciarPolling() {
+        // Polling de 5s para verificar status da sessão
+        pollingInterval = setInterval(() => {
+            verificarSessao();
+            if (sessaoAtiva) {
+                carregarQuadros(); // Atualiza lista
+            }
+        }, 5000);
+    }
+    
+    // ========================================
+    // CARREGAMENTO DE QUADROS
+    // ========================================
+    
+    async function carregarQuadros() {
+        try {
+            const response = await fetch('/api/rascunhos/mobile');
+            const data = await response.json();
+            
+            if (data.sucesso) {
+                quadros = data.quadros;
+                renderizarQuadros();
+            }
+        } catch (error) {
+            console.error('Erro ao carregar quadros:', error);
+            mostrarAlerta('danger', 'Erro ao carregar lista de quadros');
+        }
+    }
+    
+    function renderizarQuadros() {
+        const container = document.getElementById('listaQuadros');
+        
+        if (quadros.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5 text-white">
+                    <i class="fas fa-inbox fa-3x mb-3 opacity-50"></i>
+                    <p>Nenhum quadro disponível</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        quadros.forEach(q => {
+            const cadastrado = q.cadastrado;
+            const cardClass = cadastrado ? 'cadastrado' : 'pendente';
+            const badge = cadastrado 
+                ? `<span class="badge-cadastrado"><i class="fas fa-check-circle me-1"></i> Cadastrado</span>`
+                : `<span class="badge-pendente"><i class="fas fa-clock me-1"></i> Pendente</span>`;
+            
+            const valorHtml = cadastrado 
+                ? `<div class="valor-cadastrado mt-2"><i class="fas fa-tachometer-alt me-1"></i> ${q.valor_leitura.toFixed(2)} kWh</div>`
+                : '';
+            
+            html += `
+                <div class="quadro-card ${cardClass}" onclick="abrirModalRegistro(${q.quadro_id})">
+                    <div class="quadro-nome">${q.quadro_nome}</div>
+                    <div class="quadro-localizacao">
+                        <i class="fas fa-map-marker-alt me-1"></i> ${q.quadro_localizacao}
+                    </div>
+                    <div class="quadro-status">
+                        ${badge}
+                        <i class="fas fa-chevron-right" style="color: #cbd5e1;"></i>
+                    </div>
+                    ${valorHtml}
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function recarregarQuadros() {
+        verificarSessao();
+        carregarQuadros();
+        mostrarAlerta('info', 'Lista atualizada');
+    }
+    
+    // ========================================
+    // MODAL DE REGISTRO
+    // ========================================
+    
+    function abrirModalRegistro(quadroId) {
+        quadroSelecionado = quadros.find(q => q.quadro_id === quadroId);
+        
+        if (!quadroSelecionado) return;
+        
+        // Preenche info do quadro
+        document.getElementById('modalQuadroNome').textContent = quadroSelecionado.quadro_nome;
+        document.getElementById('modalQuadroLoc').textContent = quadroSelecionado.quadro_localizacao;
+        
+        // Se já tem valor cadastrado, preenche
+        if (quadroSelecionado.cadastrado) {
+            valorAtual = quadroSelecionado.valor_leitura.toString();
+            document.getElementById('infoEdicao').style.display = 'block';
+        } else {
+            valorAtual = '0';
+            document.getElementById('infoEdicao').style.display = 'none';
+        }
+        
+        atualizarDisplay();
+        modalRegistro.show();
+    }
+    
+    // ========================================
+    // TECLADO NUMÉRICO
+    // ========================================
+    
+    function adicionarDigito(digito) {
+        if (valorAtual === '0' && digito !== '.') {
+            valorAtual = digito;
+        } else if (digito === '.' && valorAtual.includes('.')) {
+            return; // Já tem ponto
+        } else {
+            valorAtual += digito;
+        }
+        atualizarDisplay();
+    }
+    
+    function apagarDigito() {
+        if (valorAtual.length > 1) {
+            valorAtual = valorAtual.slice(0, -1);
+        } else {
+            valorAtual = '0';
+        }
+        atualizarDisplay();
+    }
+    
+    function limparValor() {
+        valorAtual = '0';
+        atualizarDisplay();
+    }
+    
+    function atualizarDisplay() {
+        document.getElementById('valorDisplay').textContent = valorAtual;
+    }
+    
+    // ========================================
+    // CONFIRMAÇÃO E ENVIO
+    // ========================================
+    
+    async function confirmarRegistro() {
+        const valor = parseFloat(valorAtual);
+        
+        if (isNaN(valor) || valor < 0) {
+            mostrarAlerta('danger', 'Valor inválido!');
+            return;
+        }
+        
+        // Envia para o backend
+        try {
+            const formData = new FormData();
+            formData.append('quadro_id', quadroSelecionado.quadro_id);
+            formData.append('novo_valor', valor);
+            
+            const response = await fetch('/registrar', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            // Verifica se é inconsistência (status 409) ou sucesso (2xx)
+            if (response.status === 409 && data.inconsistencia) {
+                // Reset detectado - mostra modal de confirmação
+                // Preserva o quadro_id no objeto dadosReset
+                dadosReset = {
+                    ...data,
+                    quadro_id: quadroSelecionado.quadro_id
+                };
+                modalRegistro.hide();
+                mostrarModalReset(data);
+            } else if (response.ok && data.sucesso) {
+                modalRegistro.hide();
+                mostrarAlerta('success', data.mensagem);
+                carregarQuadros(); // Atualiza lista
+            } else {
+                mostrarAlerta('danger', data.erro || data.mensagem || 'Erro ao registrar');
+            }
+        } catch (error) {
+            console.error('Erro ao registrar:', error);
+            mostrarAlerta('danger', 'Erro de conexão');
+        }
+    }
+    
+    function mostrarModalReset(data) {
+        document.getElementById('modalResetMensagem').innerHTML = `
+            <strong>Último valor:</strong> ${data.valor_anterior} kWh<br>
+            <strong>Valor informado:</strong> ${data.novo_valor} kWh
+        `;
+        modalReset.show();
+    }
+    
+    function voltarEdicao() {
+        modalReset.hide();
+        setTimeout(() => {
+            modalRegistro.show();
+        }, 300);
+    }
+    
+    async function confirmarReset() {
+        if (!dadosReset) return;
+        
+        try {
+            const formData = new FormData();
+            formData.append('quadro_id', dadosReset.quadro_id);
+            formData.append('novo_valor', dadosReset.novo_valor);
+            
+            const response = await fetch('/confirmar_reset', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.sucesso) {
+                modalReset.hide();
+                mostrarAlerta('warning', data.mensagem);
+                carregarQuadros();
+                dadosReset = null;
+            } else {
+                mostrarAlerta('danger', data.erro);
+            }
+        } catch (error) {
+            console.error('Erro ao confirmar reset:', error);
+            mostrarAlerta('danger', 'Erro de conexão');
+        }
+    }
+    
+    // ========================================
+    // ALERTAS
+    // ========================================
+    
+    function mostrarAlerta(tipo, mensagem) {
+        const container = document.getElementById('alertContainer');
+        const icones = {
+            'success': 'check-circle',
+            'danger': 'exclamation-circle',
+            'warning': 'exclamation-triangle',
+            'info': 'info-circle'
+        };
+        
+        container.innerHTML = `
+            <div class="alert alert-${tipo} alert-dismissible fade show" role="alert" style="border-radius: 15px;">
+                <i class="fas fa-${icones[tipo]} me-2"></i> ${mensagem}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        setTimeout(() => {
+            container.innerHTML = '';
+        }, 4000);
+    }
+    
+    // Limpa polling ao sair
+    window.addEventListener('beforeunload', () => {
+        if (pollingInterval) clearInterval(pollingInterval);
+    });
+</script>
+{% endblock %}

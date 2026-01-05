@@ -1,0 +1,818 @@
+{% extends "base.html" %}
+{% block title %}Energy Monitor | Revisão{% endblock %}
+{% set active_page = 'revisao' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--text-primary);">Revisão de Leituras</h2>
+        <p class="text-muted mb-0">Confira os rascunhos antes de consolidar</p>
+    </div>
+    
+    <!-- Controles de Sessão -->
+    <div class="d-flex align-items-center gap-3">
+        <!-- Status da Sessão -->
+        <div id="statusSessao" class="d-flex align-items-center gap-2 px-3 py-2 rounded" style="background: #f1f5f9;">
+            <span class="badge badge-soft-secondary" id="badgeSessao">
+                <i class="fas fa-circle-stop"></i> Inativa
+            </span>
+        </div>
+        
+        <!-- Botões de Controle -->
+        <button id="btnIniciarSessao" class="btn btn-primary" onclick="iniciarSessao()">
+            <i class="fas fa-play me-2"></i> Iniciar Sessão
+        </button>
+        <button id="btnCancelarSessao" class="btn btn-outline-danger d-none" onclick="cancelarSessao()">
+            <i class="fas fa-times me-2"></i> Cancelar Sessão
+        </button>
+    </div>
+</div>
+
+<!-- Alertas -->
+<div id="alertContainer"></div>
+
+{% if dados_revisao %}
+<!-- KPIs de Revisão -->
+<div class="row g-4 mb-5">
+    <div class="col-md-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-label">RASCUNHOS PENDENTES</div>
+            <div class="kpi-value">{{ dados_revisao|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-label">DENTRO DO NORMAL</div>
+            <div class="kpi-value text-success">{{ dados_revisao|selectattr('status_desvio', 'equalto', 'normal')|list|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-label">COM ALERTA</div>
+            <div class="kpi-value text-warning">{{ dados_revisao|selectattr('status_desvio', 'equalto', 'alerta')|list|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="kpi-card">
+            <div class="kpi-label">CRÍTICOS</div>
+            <div class="kpi-value text-danger">{{ dados_revisao|selectattr('status_desvio', 'equalto', 'critico')|list|length }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela de Conferência -->
+<div class="table-card">
+    <div class="table-header">
+        <h5 class="mb-0 fw-bold" style="color: var(--text-primary);">Conferência de Leituras</h5>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Quadro</th>
+                    <th>Localização</th>
+                    <th class="text-end">Último Oficial (kWh)</th>
+                    <th class="text-end">Lido (kWh)</th>
+                    <th class="text-end">Consumo (kWh)</th>
+                    <th class="text-end">Média 90d (kWh)</th>
+                    <th class="text-center">Desvio</th>
+                    <th class="text-center">Status</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in dados_revisao %}
+                <tr class="{% if item.status_desvio == 'alerta' %}linha-alerta{% elif item.status_desvio == 'critico' %}linha-critico{% endif %}" id="linha-{{ item.id }}">
+                    <td>
+                        <div class="fw-bold-dark">{{ item.quadro_nome }}</div>
+                        {% if item.alerta_reset %}
+                        <span class="badge badge-soft-warning mt-1">
+                            <i class="fas fa-exclamation-triangle"></i> Reset
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.quadro_localizacao }}</td>
+                    <td class="text-end text-muted">
+                        {{ "%.2f"|format(item.ultimo_valor_oficial) }}
+                        <br>
+                        <small class="text-muted" style="font-size: 0.75rem;">{{ item.ultima_data_oficial }}</small>
+                    </td>
+                    <td class="text-end fw-bold-dark">{{ "%.2f"|format(item.valor_leitura) }}</td>
+                    <td class="text-end">
+                        <span class="badge badge-soft-success" style="font-size: 0.9rem;">
+                            {{ "%.2f"|format(item.consumo_provisorio) }}
+                        </span>
+                    </td>
+                    <td class="text-end text-muted">{{ "%.2f"|format(item.media_90_dias) }}</td>
+                    <td class="text-center">
+                        {% if item.desvio_percentual > 0 %}
+                        <span class="badge badge-soft-warning">
+                            <i class="fas fa-arrow-up"></i> +{{ "%.1f"|format(item.desvio_percentual) }}%
+                        </span>
+                        {% elif item.desvio_percentual < 0 %}
+                        <span class="badge badge-soft-warning">
+                            <i class="fas fa-arrow-down"></i> {{ "%.1f"|format(item.desvio_percentual) }}%
+                        </span>
+                        {% else %}
+                        <span class="badge badge-soft-success">--</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if item.status_desvio == 'critico' %}
+                        <span class="badge badge-soft-danger">
+                            <i class="fas fa-exclamation-circle"></i> Crítico
+                        </span>
+                        {% elif item.status_desvio == 'alerta' %}
+                        <span class="badge badge-soft-warning">
+                            <i class="fas fa-exclamation-triangle"></i> Alerta
+                        </span>
+                        {% else %}
+                        <span class="badge badge-soft-success">
+                            <i class="fas fa-check-circle"></i> Normal
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary" 
+                                onclick="abrirModalEditar({{ item.id }}, '{{ item.quadro_nome }}', {{ item.valor_leitura }})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Botão Flutuante de Consolidação -->
+<button class="btn btn-success btn-float" onclick="confirmarConsolidacao()">
+    <i class="fas fa-check-double me-2"></i> Finalizar Processo
+</button>
+
+{% else %}
+<!-- Nenhum rascunho -->
+<div class="table-card">
+    <div class="p-5 text-center">
+        <i class="fas fa-inbox fa-4x mb-3 opacity-25" style="color: var(--text-secondary);"></i>
+        <h5 class="text-muted">Nenhum rascunho pendente de revisão</h5>
+        <p class="text-muted">Todas as leituras foram consolidadas.</p>
+        <a href="/registrar" class="btn btn-primary mt-3">
+            <i class="fas fa-plus me-2"></i> Registrar Leituras
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal: Editar Rascunho -->
+<div class="modal fade" id="modalEditarRascunho" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Editar Leitura</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formEditarRascunho">
+                <input type="hidden" id="edit_rascunho_id">
+                <div class="modal-body">
+                    <h6 class="mb-3" id="edit_quadro_nome"></h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Valor da Leitura (kWh)</label>
+                        <input type="number" class="form-control" id="edit_valor_leitura" 
+                               name="valor_leitura" step="0.01" required>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        O consumo provisório será recalculado automaticamente.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Salvar Alteração
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirmar Consolidação -->
+<div class="modal fade" id="modalConfirmarConsolidacao" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-check-double"></i> Confirmar Finalização</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Tem certeza que deseja finalizar o processo?</h6>
+                <p class="text-muted">
+                    Todas as leituras em rascunho serão movidas para o registro definitivo 
+                    e não poderão mais ser editadas.
+                </p>
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i> 
+                    <strong>{{ dados_revisao|length }}</strong> leitura(s) será(ão) consolidada(s).
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-success" id="btnConfirmarConsolidacao">
+                    <i class="fas fa-check"></i> Confirmar e Finalizar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Conflitos de Data -->
+<div class="modal fade" id="modalConflitos" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius: 16px; border: none;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #FCD34D 0%, #F59E0B 100%); color: white; border: none;">
+                <h5 class="modal-title fw-bold">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Leituras Duplicadas Detectadas
+                </h5>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div class="alert alert-warning mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Atenção!</strong> Os seguintes quadros já possuem leitura oficial registrada no mesmo dia. 
+                    Você precisa decidir como proceder com cada um:
+                </div>
+                
+                <div id="listaConflitos">
+                    <!-- Cards de conflitos serão inseridos aqui via JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top: 2px solid #E5E7EB;">
+                <button type="button" class="btn btn-primary btn-lg w-100" id="btnProsseguirConsolidacao" disabled>
+                    <i class="fas fa-arrow-right me-2"></i>
+                    Prosseguir com Consolidação
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const modalEditarRascunho = new bootstrap.Modal(document.getElementById('modalEditarRascunho'));
+    const modalConfirmarConsolidacao = new bootstrap.Modal(document.getElementById('modalConfirmarConsolidacao'));
+    
+    function abrirModalEditar(id, nome, valor) {
+        document.getElementById('edit_rascunho_id').value = id;
+        document.getElementById('edit_quadro_nome').textContent = nome;
+        document.getElementById('edit_valor_leitura').value = valor;
+        modalEditarRascunho.show();
+    }
+    
+    document.getElementById('formEditarRascunho').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const id = document.getElementById('edit_rascunho_id').value;
+        const formData = new FormData(e.target);
+        
+        try {
+            const response = await fetch(`/revisao/editar/${id}`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                modalEditarRascunho.hide();
+                mostrarAlerta('success', data.mensagem);
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarAlerta('danger', data.erro);
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro de conexão com o servidor');
+        }
+    });
+    
+    function confirmarConsolidacao() {
+        // Primeiro verifica se há conflitos
+        verificarConflitosAntes();
+    }
+    
+    async function verificarConflitosAntes() {
+        try {
+            const response = await fetch('/verificar_conflitos');
+            const data = await response.json();
+            
+            if (response.ok) {
+                if (data.tem_conflitos) {
+                    // Mostra modal de conflitos
+                    mostrarModalConflitos(data.conflitos);
+                } else {
+                    // Sem conflitos, prossegue normalmente
+                    modalConfirmarConsolidacao.show();
+                }
+            } else {
+                mostrarAlerta('danger', data.erro);
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro ao verificar conflitos');
+        }
+    }
+    
+    let decisoesConflitos = {};
+    
+    function mostrarModalConflitos(conflitos) {
+        decisoesConflitos = {};
+        
+        const listaConflitos = document.getElementById('listaConflitos');
+        listaConflitos.innerHTML = '';
+        
+        conflitos.forEach(conflito => {
+            const card = document.createElement('div');
+            card.className = 'card mb-3';
+            card.style.border = '2px solid #FCD34D';
+            card.style.borderRadius = '12px';
+            card.innerHTML = `
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3" style="color: var(--text-primary);">
+                        <i class="fas fa-charging-station me-2" style="color: var(--primary-color);"></i>
+                        ${conflito.quadro_nome} - ${conflito.quadro_localizacao}
+                    </h6>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="p-3" style="background: #FEF2F2; border-radius: 8px; border-left: 4px solid #DC2626;">
+                                <div class="small text-muted mb-1">📅 LEITURA EXISTENTE</div>
+                                <div class="fw-bold">${conflito.existente_data}</div>
+                                <div class="fs-5 fw-bold mt-1" style="color: #DC2626;">${conflito.existente_valor} kWh</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3" style="background: #DBEAFE; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                                <div class="small text-muted mb-1">📋 NOVO RASCUNHO</div>
+                                <div class="fw-bold">${conflito.rascunho_data}</div>
+                                <div class="fs-5 fw-bold mt-1" style="color: var(--primary-color);">${conflito.rascunho_valor} kWh</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-warning" onclick="selecionarDecisao(${conflito.rascunho_id}, 'substituir', this)">
+                            <i class="fas fa-exchange-alt me-2"></i>
+                            Substituir a Anterior (Deletar ${conflito.existente_valor} kWh, manter ${conflito.rascunho_valor} kWh)
+                        </button>
+                        <button class="btn btn-success" onclick="selecionarDecisao(${conflito.rascunho_id}, 'manter_ambas', this)">
+                            <i class="fas fa-plus-circle me-2"></i>
+                            Manter Ambas as Leituras (Histórico completo)
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="selecionarDecisao(${conflito.rascunho_id}, 'pular', this)">
+                            <i class="fas fa-times me-2"></i>
+                            Não Consolidar Agora (Manter como rascunho)
+                        </button>
+                    </div>
+                    
+                    <div class="mt-2 text-center">
+                        <small class="text-muted" id="status-${conflito.rascunho_id}">
+                            <i class="fas fa-info-circle"></i> Selecione uma opção para continuar
+                        </small>
+                    </div>
+                </div>
+            `;
+            listaConflitos.appendChild(card);
+        });
+        
+        const modalConflitos = new bootstrap.Modal(document.getElementById('modalConflitos'));
+        modalConflitos.show();
+        
+        // Desabilita botão de prosseguir até decidir todos
+        document.getElementById('btnProsseguirConsolidacao').disabled = true;
+    }
+    
+    function selecionarDecisao(rascunhoId, acao, btnElement) {
+        decisoesConflitos[rascunhoId] = acao;
+        
+        // Marca visualmente a escolha
+        const card = btnElement.closest('.card-body');
+        const botoes = card.querySelectorAll('button');
+        botoes.forEach(b => {
+            b.classList.remove('active');
+            b.style.opacity = '0.5';
+        });
+        btnElement.classList.add('active');
+        btnElement.style.opacity = '1';
+        
+        // Atualiza status
+        const icones = {
+            'substituir': '<i class="fas fa-check-circle text-warning"></i> Substituir selecionado',
+            'manter_ambas': '<i class="fas fa-check-circle text-success"></i> Manter ambas selecionado',
+            'pular': '<i class="fas fa-check-circle text-secondary"></i> Pular selecionado'
+        };
+        document.getElementById(`status-${rascunhoId}`).innerHTML = icones[acao];
+        
+        // Verifica se todas as decisões foram tomadas
+        const totalConflitos = document.getElementById('listaConflitos').children.length;
+        const totalDecisoes = Object.keys(decisoesConflitos).length;
+        
+        if (totalDecisoes === totalConflitos) {
+            document.getElementById('btnProsseguirConsolidacao').disabled = false;
+        }
+    }
+    
+    document.getElementById('btnProsseguirConsolidacao').addEventListener('click', async () => {
+        try {
+            const response = await fetch('/consolidar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    decisoes: decisoesConflitos
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                const modalConflitos = bootstrap.Modal.getInstance(document.getElementById('modalConflitos'));
+                modalConflitos.hide();
+                mostrarAlerta('success', data.mensagem);
+                
+                // Encerra a sessão após consolidação bem-sucedida
+                await encerrarSessaoAposConsolidar();
+                
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+            } else {
+                mostrarAlerta('danger', data.erro);
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro ao consolidar com decisões');
+        }
+    });
+    
+    document.getElementById('btnConfirmarConsolidacao').addEventListener('click', async () => {
+        try {
+            const response = await fetch('/consolidar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    decisoes: {}
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                modalConfirmarConsolidacao.hide();
+                mostrarAlerta('success', data.mensagem);
+                
+                // Encerra a sessão após consolidação bem-sucedida
+                await encerrarSessaoAposConsolidar();
+                
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+            } else {
+                mostrarAlerta('danger', data.erro);
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro de conexão com o servidor');
+        }
+    });
+    
+    // ========================================
+    // CONTROLE DE SESSÃO E POLLING
+    // ========================================
+    
+    let pollingInterval = null;
+    let sessaoAtiva = false;
+    
+    // Verifica status da sessão ao carregar
+    verificarStatusSessao();
+    
+    async function verificarStatusSessao() {
+        try {
+            const response = await fetch('/api/sessao/status');
+            const data = await response.json();
+            
+            sessaoAtiva = data.ativa;
+            atualizarUIStatus(data.ativa);
+            
+            // Se sessão está ativa, inicia polling
+            if (data.ativa && !pollingInterval) {
+                iniciarPolling();
+            }
+        } catch (error) {
+            console.error('Erro ao verificar status da sessão:', error);
+        }
+    }
+    
+    function atualizarUIStatus(ativa) {
+        const badgeSessao = document.getElementById('badgeSessao');
+        const btnIniciar = document.getElementById('btnIniciarSessao');
+        const btnCancelar = document.getElementById('btnCancelarSessao');
+        const btnFloat = document.querySelector('.btn-float');
+        
+        if (ativa) {
+            badgeSessao.innerHTML = '<i class="fas fa-circle me-1" style="color: #dc2626; animation: pulse 1.5s infinite;"></i> AO VIVO';
+            badgeSessao.className = 'badge badge-soft-danger';
+            btnIniciar.classList.add('d-none');
+            btnCancelar.classList.remove('d-none');
+            if (btnFloat) btnFloat.textContent = 'Finalizar e Consolidar';
+        } else {
+            badgeSessao.innerHTML = '<i class="fas fa-circle-stop"></i> Inativa';
+            badgeSessao.className = 'badge badge-soft-secondary';
+            btnIniciar.classList.remove('d-none');
+            btnCancelar.classList.add('d-none');
+            if (btnFloat) btnFloat.innerHTML = '<i class="fas fa-check-double me-2"></i> Finalizar Processo';
+        }
+    }
+    
+    async function iniciarSessao() {
+        try {
+            const response = await fetch('/api/sessao/iniciar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                mostrarAlerta('success', 'Sessão iniciada! Operadores já podem registrar leituras.');
+                sessaoAtiva = true;
+                atualizarUIStatus(true);
+                iniciarPolling();
+            } else {
+                mostrarAlerta('danger', data.mensagem || 'Erro ao iniciar sessão');
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro de conexão ao iniciar sessão');
+        }
+    }
+    
+    async function cancelarSessao() {
+        if (!confirm('Cancelar a sessão irá DELETAR todos os rascunhos registrados. Deseja continuar?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/sessao/encerrar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                mostrarAlerta('warning', data.mensagem);
+                sessaoAtiva = false;
+                atualizarUIStatus(false);
+                pararPolling();
+                
+                // Recarrega página após 2s
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                mostrarAlerta('danger', data.mensagem || 'Erro ao cancelar sessão');
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro de conexão ao cancelar sessão');
+        }
+    }
+    
+    async function encerrarSessaoAposConsolidar() {
+        // Encerra a sessão silenciosamente após consolidação bem-sucedida
+        // Não deleta rascunhos pois já foram consolidados
+        try {
+            if (sessaoAtiva) {
+                const response = await fetch('/api/sessao/encerrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    sessaoAtiva = false;
+                    atualizarUIStatus(false);
+                    pararPolling();
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao encerrar sessão:', error);
+        }
+    }
+    
+    function iniciarPolling() {
+        if (pollingInterval) return; // Já está rodando
+        
+        pollingInterval = setInterval(async () => {
+            try {
+                // Verifica se ainda há sessão ativa
+                const statusResponse = await fetch('/api/sessao/status');
+                const statusData = await statusResponse.json();
+                
+                if (!statusData.ativa) {
+                    // Sessão foi encerrada externamente
+                    pararPolling();
+                    atualizarUIStatus(false);
+                    return;
+                }
+                
+                // Atualiza rascunhos dinamicamente sem recarregar página
+                await atualizarRascunhosDinamicamente();
+            } catch (error) {
+                console.error('Erro no polling:', error);
+            }
+        }, 15000); // 15 segundos
+    }
+    
+    async function atualizarRascunhosDinamicamente() {
+        try {
+            const response = await fetch('/api/rascunhos/revisao');
+            const data = await response.json();
+            
+            if (!data.sucesso) return;
+            
+            const rascunhos = data.rascunhos;
+            const tbody = document.querySelector('.table tbody');
+            
+            if (!tbody) return; // Não está na página de revisão com tabela
+            
+            // Pega IDs existentes na tabela
+            const idsExistentes = new Set();
+            tbody.querySelectorAll('tr[id^="linha-"]').forEach(tr => {
+                const id = parseInt(tr.id.replace('linha-', ''));
+                idsExistentes.add(id);
+            });
+            
+            // Adiciona novos rascunhos que não existem na tabela
+            rascunhos.forEach(item => {
+                if (!idsExistentes.has(item.id)) {
+                    const novaLinha = criarLinhaRascunho(item);
+                    tbody.insertAdjacentHTML('beforeend', novaLinha);
+                    
+                    // Anima entrada da nova linha
+                    const tr = document.getElementById(`linha-${item.id}`);
+                    tr.style.animation = 'fadeIn 0.5s ease-in';
+                }
+            });
+            
+            // Atualiza KPIs
+            atualizarKPIs(rascunhos);
+            
+        } catch (error) {
+            console.error('Erro ao atualizar rascunhos:', error);
+        }
+    }
+    
+    function criarLinhaRascunho(item) {
+        const classeDesvio = item.status_desvio === 'alerta' ? 'linha-alerta' : 
+                            item.status_desvio === 'critico' ? 'linha-critico' : '';
+        
+        const badgeReset = item.alerta_reset ? 
+            `<span class="badge badge-soft-warning mt-1">
+                <i class="fas fa-exclamation-triangle"></i> Reset
+            </span>` : '';
+        
+        let badgeDesvio = '';
+        if (item.desvio_percentual > 0) {
+            badgeDesvio = `<span class="badge badge-soft-warning">
+                <i class="fas fa-arrow-up"></i> +${item.desvio_percentual.toFixed(1)}%
+            </span>`;
+        } else if (item.desvio_percentual < 0) {
+            badgeDesvio = `<span class="badge badge-soft-warning">
+                <i class="fas fa-arrow-down"></i> ${item.desvio_percentual.toFixed(1)}%
+            </span>`;
+        } else {
+            badgeDesvio = `<span class="badge badge-soft-success">--</span>`;
+        }
+        
+        let badgeStatus = '';
+        if (item.status_desvio === 'critico') {
+            badgeStatus = `<span class="badge badge-soft-danger">
+                <i class="fas fa-exclamation-circle"></i> Crítico
+            </span>`;
+        } else if (item.status_desvio === 'alerta') {
+            badgeStatus = `<span class="badge badge-soft-warning">
+                <i class="fas fa-exclamation-triangle"></i> Alerta
+            </span>`;
+        } else {
+            badgeStatus = `<span class="badge badge-soft-success">
+                <i class="fas fa-check-circle"></i> Normal
+            </span>`;
+        }
+        
+        return `
+            <tr class="${classeDesvio}" id="linha-${item.id}">
+                <td>
+                    <div class="fw-bold-dark">${item.quadro_nome}</div>
+                    ${badgeReset}
+                </td>
+                <td>${item.quadro_localizacao}</td>
+                <td class="text-end text-muted">
+                    ${item.ultimo_valor_oficial.toFixed(2)}<br>
+                    <small class="text-muted" style="font-size: 0.75rem;">${item.ultima_data_oficial}</small>
+                </td>
+                <td class="text-end fw-bold-dark">${item.valor_leitura.toFixed(2)}</td>
+                <td class="text-end">
+                    <span class="badge badge-soft-success" style="font-size: 0.9rem;">
+                        ${item.consumo_provisorio.toFixed(2)}
+                    </span>
+                </td>
+                <td class="text-end text-muted">${item.media_90_dias.toFixed(2)}</td>
+                <td class="text-center">${badgeDesvio}</td>
+                <td class="text-center">${badgeStatus}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary" 
+                            onclick="abrirModalEditar(${item.id}, '${item.quadro_nome}', ${item.valor_leitura})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
+    
+    function atualizarKPIs(rascunhos) {
+        // Atualiza contadores dos KPIs
+        const total = rascunhos.length;
+        const normais = rascunhos.filter(r => r.status_desvio === 'normal').length;
+        const alertas = rascunhos.filter(r => r.status_desvio === 'alerta').length;
+        const criticos = rascunhos.filter(r => r.status_desvio === 'critico').length;
+        
+        // Atualiza valores nos cards KPI se existirem
+        const kpiCards = document.querySelectorAll('.kpi-value');
+        if (kpiCards.length >= 4) {
+            kpiCards[0].textContent = total;
+            kpiCards[1].textContent = normais;
+            kpiCards[2].textContent = alertas;
+            kpiCards[3].textContent = criticos;
+        }
+    }
+    
+    function pararPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+    }
+    
+    // Para polling ao sair da página
+    window.addEventListener('beforeunload', pararPolling);
+    
+    function mostrarAlerta(tipo, mensagem) {
+        const alertContainer = document.getElementById('alertContainer');
+        const icones = {
+            'success': 'check-circle',
+            'danger': 'exclamation-circle',
+            'warning': 'exclamation-triangle'
+        };
+        
+        alertContainer.innerHTML = `
+            <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+                <i class="fas fa-${icones[tipo]}"></i> ${mensagem}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        setTimeout(() => {
+            alertContainer.innerHTML = '';
+        }, 5000);
+    }
+</script>
+
+<!-- Estilos para animações -->
+<style>
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.4;
+        }
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}

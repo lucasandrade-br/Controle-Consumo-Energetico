@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+{% block title %}Energy Monitor | Administração de Quadros{% endblock %}
+{% set active_page = 'admin' %}
+
+{% block extra_css %}
+<style>
+    .admin-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    
+    .table-wrapper {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    
+    .badge-custom {
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+    }
+    
+    .btn-action {
+        padding: 5px 12px;
+        font-size: 0.85rem;
+        margin: 2px;
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Cabeçalho -->
+<div class="admin-header">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1><i class="fas fa-cog"></i> Administração de Quadros</h1>
+            <p class="mb-0">Gerenciar quadros de energia do sistema</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="/admin/importacao" class="btn btn-light me-2">
+                <i class="fas fa-file-import"></i> Importar Dados
+            </a>
+            <a href="/analise" class="btn btn-light me-2">
+                <i class="fas fa-chart-line"></i> Análise
+            </a>
+            <a href="/" class="btn btn-light">
+                <i class="fas fa-arrow-left"></i> Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Alertas -->
+<div id="alertContainer"></div>
+
+<!-- Tabela de Quadros -->
+<div class="table-wrapper">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4><i class="fas fa-list"></i> Quadros Cadastrados</h4>
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNovoQuadro">
+            <i class="fas fa-plus-circle"></i> Novo Quadro
+        </button>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th width="80"><i class="fas fa-hashtag"></i> ID</th>
+                    <th>Nome do Quadro</th>
+                    <th>Localização</th>
+                    <th width="120" class="text-center">Status</th>
+                    <th width="200" class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for quadro in quadros %}
+                <tr data-quadro-id="{{ quadro.id }}">
+                    <td><strong>{{ quadro.id }}</strong></td>
+                    <td><strong>{{ quadro.nome }}</strong></td>
+                    <td>{{ quadro.localizacao }}</td>
+                    <td class="text-center">
+                        {% if quadro.ativo %}
+                        <span class="badge badge-custom bg-success">
+                            <i class="fas fa-check-circle"></i> Ativo
+                        </span>
+                        {% else %}
+                        <span class="badge badge-custom bg-secondary">
+                            <i class="fas fa-times-circle"></i> Inativo
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-primary btn-action" 
+                                onclick="abrirModalEditar({{ quadro.id }}, '{{ quadro.nome }}', '{{ quadro.localizacao }}', {{ 'true' if quadro.ativo else 'false' }})">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="btn btn-sm btn-danger btn-action" 
+                                onclick="confirmarExclusao({{ quadro.id }}, '{{ quadro.nome }}')">
+                            <i class="fas fa-trash"></i> Excluir
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if not quadros %}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle"></i> Nenhum quadro cadastrado ainda.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal: Novo Quadro -->
+<div class="modal fade" id="modalNovoQuadro" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-plus-circle"></i> Novo Quadro</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formNovoQuadro">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nome do Quadro *</label>
+                        <input type="text" class="form-control" name="nome" placeholder="Ex: Galpão B" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Localização *</label>
+                        <input type="text" class="form-control" name="localizacao" placeholder="Ex: Área de Estoque" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i> Criar Quadro
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Editar Quadro -->
+<div class="modal fade" id="modalEditarQuadro" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Editar Quadro</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formEditarQuadro">
+                <input type="hidden" id="edit_quadro_id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nome do Quadro *</label>
+                        <input type="text" class="form-control" id="edit_nome" name="nome" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Localização *</label>
+                        <input type="text" class="form-control" id="edit_localizacao" name="localizacao" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="edit_ativo" name="ativo">
+                            <option value="true">Ativo</option>
+                            <option value="false">Inativo</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirmar Exclusão -->
+<div class="modal fade" id="modalConfirmarExclusao" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Confirmar Exclusão</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Tem certeza que deseja excluir este quadro?</strong></p>
+                <p id="mensagemExclusao" class="text-muted"></p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle"></i> 
+                    Se houver leituras associadas, o quadro será apenas <strong>desativado</strong> para preservar o histórico.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarExclusao">
+                    <i class="fas fa-trash"></i> Confirmar Exclusão
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const modalEditarQuadro = new bootstrap.Modal(document.getElementById('modalEditarQuadro'));
+    const modalConfirmarExclusao = new bootstrap.Modal(document.getElementById('modalConfirmarExclusao'));
+    const modalNovoQuadro = new bootstrap.Modal(document.getElementById('modalNovoQuadro'));
+    
+    let quadroParaExcluir = null;
+    
+    // Criar Novo Quadro
+    document.getElementById('formNovoQuadro').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        
+        try {
+            const response = await fetch('/admin/quadros/criar', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                modalNovoQuadro.hide();
+                mostrarAlerta('success', data.mensagem);
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarAlerta('danger', data.erro);
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro de conexão com o servidor');
+        }
+    });
+    
+    // Abrir Modal de Edição
+    function abrirModalEditar(id, nome, localizacao, ativo) {
+        document.getElementById('edit_quadro_id').value = id;
+        document.getElementById('edit_nome').value = nome;
+        document.getElementById('edit_localizacao').value = localizacao;
+        document.getElementById('edit_ativo').value = ativo ? 'true' : 'false';
+        modalEditarQuadro.show();
+    }
+    
+    // Salvar Edição
+    document.getElementById('formEditarQuadro').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('edit_quadro_id').value;
+        const formData = new FormData(e.target);
+        
+        try {
+            const response = await fetch(`/admin/quadros/editar/${id}`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                modalEditarQuadro.hide();
+                mostrarAlerta('success', data.mensagem);
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarAlerta('danger', data.erro);
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro de conexão com o servidor');
+        }
+    });
+    
+    // Confirmar Exclusão
+    function confirmarExclusao(id, nome) {
+        quadroParaExcluir = id;
+        document.getElementById('mensagemExclusao').textContent = `Quadro: ${nome}`;
+        modalConfirmarExclusao.show();
+    }
+    
+    // Executar Exclusão
+    document.getElementById('btnConfirmarExclusao').addEventListener('click', async () => {
+        if (!quadroParaExcluir) return;
+        
+        try {
+            const response = await fetch(`/admin/quadros/excluir/${quadroParaExcluir}`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                modalConfirmarExclusao.hide();
+                const tipoAlerta = data.tipo === 'desativado' ? 'warning' : 'success';
+                mostrarAlerta(tipoAlerta, data.mensagem);
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                mostrarAlerta('danger', data.erro);
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro de conexão com o servidor');
+        }
+    });
+    
+    // Mostrar Alertas
+    function mostrarAlerta(tipo, mensagem) {
+        const alertContainer = document.getElementById('alertContainer');
+        const icones = {
+            'success': 'check-circle',
+            'danger': 'exclamation-circle',
+            'warning': 'exclamation-triangle'
+        };
+        
+        alertContainer.innerHTML = `
+            <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+                <i class="fas fa-${icones[tipo]}"></i> ${mensagem}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        setTimeout(() => {
+            alertContainer.innerHTML = '';
+        }, 5000);
+    }
+</script>
+{% endblock %}

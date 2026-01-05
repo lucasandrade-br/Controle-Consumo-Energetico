@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Energy Monitor | Dashboard{% endblock %}
+
+{% set active_page = 'dashboard' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--text-primary);">Painel de Controle</h2>
+        <p class="text-muted mb-0">Monitoramento em tempo real dos quadros de energia</p>
+    </div>
+    <div class="text-end">
+        <span class="text-muted small d-block">Data de Hoje</span>
+        <strong style="color: var(--text-primary);">{{ data_hoje }}</strong>
+    </div>
+</div>
+
+<div class="row g-4 mb-5">
+    <div class="col-md-6 col-lg-4">
+        <div class="kpi-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="kpi-label">CONSUMO HOJE</div>
+                    <div class="kpi-value">{{ "%.0f"|format(consumo_hoje) }}<span class="fs-6 text-muted ms-1">kWh</span></div>
+                </div>
+                <div class="p-2 rounded bg-light text-primary">
+                    <i class="fas fa-bolt fa-lg"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="kpi-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="kpi-label">MÉDIA (90 DIAS)</div>
+                    <div class="kpi-value">{{ "%.0f"|format(media_3_meses) }}<span class="fs-6 text-muted ms-1">kWh</span></div>
+                </div>
+                <div class="p-2 rounded bg-light text-info">
+                    <i class="fas fa-chart-line fa-lg"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="kpi-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="kpi-label">PENDÊNCIAS</div>
+                    <div class="kpi-value">
+                        {% set pendentes = status_quadros | selectattr("status", "equalto", "Pendente") | list | length %}
+                        {{ pendentes }}
+                        <span class="fs-6 text-muted ms-1">Quadros</span>
+                    </div>
+                </div>
+                <div class="p-2 rounded bg-light {% if pendentes > 0 %}text-warning{% else %}text-success{% endif %}">
+                    <i class="fas fa-clipboard-list fa-lg"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="table-card">
+    <div class="table-header">
+        <h5 class="mb-0 fw-bold" style="color: var(--text-primary);">Status dos Medidores</h5>
+        <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+            <i class="fas fa-sync-alt me-1"></i> Atualizar
+        </button>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Quadro / Local</th>
+                    <th class="text-end">Leitura Atual</th>
+                    <th class="text-end">Consumo (24h)</th>
+                    <th class="text-center">Status</th>
+                    <th class="text-end">Último Reg.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for quadro in status_quadros %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; color: var(--primary-color);">
+                                <i class="fas fa-charging-station"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold-dark">{{ quadro.nome }}</div>
+                                <div class="small text-muted">{{ quadro.localizacao }}</div>
+                            </div>
+                            {% if quadro.alerta_reset %}
+                                <span class="badge badge-soft-danger ms-2" title="Reset de Medidor Detectado">Reset</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="text-end fw-bold-dark">{{ "%.0f"|format(quadro.valor_atual) }}</td>
+                    <td class="text-end">
+                        {% if quadro.consumo_hoje > 0 %}
+                            <span class="text-success fw-bold">+{{ "%.0f"|format(quadro.consumo_hoje) }}</span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if quadro.status == 'OK' %}
+                            <span class="badge badge-soft-success">
+                                <i class="fas fa-check me-1"></i> Finalizado
+                            </span>
+                        {% else %}
+                            <span class="badge badge-soft-warning">
+                                <i class="fas fa-clock me-1"></i> Pendente
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end text-muted small">
+                        {{ quadro.ultima_data }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-5 text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i><br>
+                        Nenhum quadro cadastrado.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Refresh automático sutil a cada 60s
+    setTimeout(() => {
+        location.reload();
+    }, 60000);
+</script>
+{% endblock %}

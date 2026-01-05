@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Monitor | Configurações</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --sidebar-width: 260px;
+            --primary-color: #4F46E5;
+            --bg-color: #F3F4F6;
+            --text-primary: #111827;
+            --text-secondary: #6B7280;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: white;
+            border-right: 1px solid #E5E7EB;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            z-index: 1000;
+        }
+
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 40px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            font-weight: 500;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .nav-link:hover {
+            background-color: #F9FAFB;
+            color: var(--primary-color);
+        }
+
+        .nav-link.active {
+            background-color: #EEF2FF;
+            color: var(--primary-color);
+        }
+
+        .nav-link i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            background: #F8FAFC;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .qr-thumbnail {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #E2E8F0;
+            padding: 5px;
+            background: white;
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 32px;
+        }
+
+        /* --- Table Card --- */
+        .table-card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #E5E7EB;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .table-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            background-color: #F9FAFB;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 16px 24px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+        .table td {
+            padding: 16px 24px;
+            vertical-align: middle;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .fw-bold-dark {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* --- Status Badges --- */
+        .badge-soft-success {
+            background-color: #ECFDF5;
+            color: #059669;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .badge-soft-secondary {
+            background-color: #F3F4F6;
+            color: #6B7280;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        /* --- Botões --- */
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: #4338CA;
+            border-color: #4338CA;
+        }
+
+        /* --- Modais --- */
+        .modal-content {
+            border-radius: 16px;
+            border: none;
+        }
+
+        .modal-header {
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 992px) {
+            .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+            .main-content { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="brand">
+            <i class="fas fa-bolt"></i> ENERGY.io
+        </div>
+
+        <div class="nav flex-column">
+            <a href="/" class="nav-link">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            <a href="/registrar" class="nav-link">
+                <i class="fas fa-plus-circle"></i> Nova Leitura
+            </a>
+            <a href="/revisao" class="nav-link d-flex justify-content-between">
+                <span><i class="fas fa-clipboard-check"></i> Revisão</span>
+                {% if total_rascunhos > 0 %}
+                <span class="badge bg-danger rounded-pill">{{ total_rascunhos }}</span>
+                {% endif %}
+            </a>
+            <a href="/analise" class="nav-link">
+                <i class="fas fa-chart-pie"></i> Relatórios
+            </a>
+            <a href="/admin/quadros" class="nav-link active">
+                <i class="fas fa-cog"></i> Configurações
+            </a>
+        </div>
+
+        <div class="sidebar-footer">
+            <img src="{{ qrcode_img }}" alt="QR Code" class="qr-thumbnail">
+            <div style="font-size: 0.75rem; color: #64748B;">
+                Acesso Mobile
+            </div>
+            <div style="font-size: 0.7rem; font-family: monospace; color: #94A3B8; margin-top: 4px;">
+                {{ ip_local }}
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        
+        <div class="d-flex justify-content-between align-items-center mb-5">
+            <div>
+                <h2 class="fw-bold mb-1" style="color: var(--text-primary);">Configurações do Sistema</h2>
+                <p class="text-muted mb-0">Gerenciar quadros de energia e importação de dados</p>
+            </div>
+            <div>
+                <a href="/admin/importacao" class="btn btn-outline-secondary me-2">
+                    <i class="fas fa-file-import me-1"></i> Importar Dados
+                </a>
+            </div>
+        </div>
+
+        <!-- Alertas -->
+        <div id="alertContainer"></div>
+
+        <!-- Tabela de Quadros -->
+        <div class="table-card">
+            <div class="table-header">
+                <h5 class="mb-0 fw-bold" style="color: var(--text-primary);">Quadros Cadastrados</h5>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovoQuadro">
+                    <i class="fas fa-plus-circle me-1"></i> Novo Quadro
+                </button>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th width="80"><i class="fas fa-hashtag"></i> ID</th>
+                            <th>Nome do Quadro</th>
+                            <th>Localização</th>
+                            <th width="120" class="text-center">Status</th>
+                            <th width="200" class="text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for quadro in quadros %}
+                        <tr data-quadro-id="{{ quadro.id }}">
+                            <td class="fw-bold-dark">{{ quadro.id }}</td>
+                            <td class="fw-bold-dark">{{ quadro.nome }}</td>
+                            <td>{{ quadro.localizacao }}</td>
+                            <td class="text-center">
+                                {% if quadro.ativo %}
+                                <span class="badge badge-soft-success">
+                                    <i class="fas fa-check-circle"></i> Ativo
+                                </span>
+                                {% else %}
+                                <span class="badge badge-soft-secondary">
+                                    <i class="fas fa-times-circle"></i> Inativo
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-primary me-1" 
+                                        onclick="abrirModalEditar({{ quadro.id }}, '{{ quadro.nome }}', '{{ quadro.localizacao }}', {{ 'true' if quadro.ativo else 'false' }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="confirmarExclusao({{ quadro.id }}, '{{ quadro.nome }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                {% if not quadros %}
+                <div class="p-5 text-center">
+                    <i class="fas fa-inbox fa-4x mb-3 opacity-25" style="color: var(--text-secondary);"></i>
+                    <h5 class="text-muted">Nenhum quadro cadastrado ainda</h5>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Novo Quadro -->
+    <div class="modal fade" id="modalNovoQuadro" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle"></i> Novo Quadro</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="formNovoQuadro">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nome do Quadro</label>
+                            <input type="text" class="form-control" name="nome" placeholder="Ex: Galpão B" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Localização</label>
+                            <input type="text" class="form-control" name="localizacao" placeholder="Ex: Área de Estoque" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Criar Quadro
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Editar Quadro -->
+    <div class="modal fade" id="modalEditarQuadro" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit"></i> Editar Quadro</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="formEditarQuadro">
+                    <input type="hidden" id="edit_quadro_id">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nome do Quadro</label>
+                            <input type="text" class="form-control" id="edit_nome" name="nome" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Localização</label>
+                            <input type="text" class="form-control" id="edit_localizacao" name="localizacao" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="edit_ativo" name="ativo">
+                                <option value="true">Ativo</option>
+                                <option value="false">Inativo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Salvar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Confirmar Exclusão -->
+    <div class="modal fade" id="modalConfirmarExclusao" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Tem certeza que deseja excluir este quadro?</strong></p>
+                    <p id="mensagemExclusao" class="text-muted"></p>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle"></i> 
+                        Se houver leituras associadas, o quadro será apenas <strong>desativado</strong> para preservar o histórico.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" id="btnConfirmarExclusao">
+                        <i class="fas fa-trash"></i> Confirmar Exclusão
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        const modalEditarQuadro = new bootstrap.Modal(document.getElementById('modalEditarQuadro'));
+        const modalConfirmarExclusao = new bootstrap.Modal(document.getElementById('modalConfirmarExclusao'));
+        const modalNovoQuadro = new bootstrap.Modal(document.getElementById('modalNovoQuadro'));
+        
+        let quadroParaExcluir = null;
+        
+        document.getElementById('formNovoQuadro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/admin/quadros/criar', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    modalNovoQuadro.hide();
+                    mostrarAlerta('success', data.mensagem);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    mostrarAlerta('danger', data.erro);
+                }
+            } catch (error) {
+                mostrarAlerta('danger', 'Erro de conexão com o servidor');
+            }
+        });
+        
+        function abrirModalEditar(id, nome, localizacao, ativo) {
+            document.getElementById('edit_quadro_id').value = id;
+            document.getElementById('edit_nome').value = nome;
+            document.getElementById('edit_localizacao').value = localizacao;
+            document.getElementById('edit_ativo').value = ativo ? 'true' : 'false';
+            modalEditarQuadro.show();
+        }
+        
+        document.getElementById('formEditarQuadro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit_quadro_id').value;
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch(`/admin/quadros/editar/${id}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    modalEditarQuadro.hide();
+                    mostrarAlerta('success', data.mensagem);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    mostrarAlerta('danger', data.erro);
+                }
+            } catch (error) {
+                mostrarAlerta('danger', 'Erro de conexão com o servidor');
+            }
+        });
+        
+        function confirmarExclusao(id, nome) {
+            quadroParaExcluir = id;
+            document.getElementById('mensagemExclusao').textContent = `Quadro: ${nome}`;
+            modalConfirmarExclusao.show();
+        }
+        
+        document.getElementById('btnConfirmarExclusao').addEventListener('click', async () => {
+            if (!quadroParaExcluir) return;
+            
+            try {
+                const response = await fetch(`/admin/quadros/excluir/${quadroParaExcluir}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    modalConfirmarExclusao.hide();
+                    const tipoAlerta = data.tipo === 'desativado' ? 'warning' : 'success';
+                    mostrarAlerta(tipoAlerta, data.mensagem);
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    mostrarAlerta('danger', data.erro);
+                }
+            } catch (error) {
+                mostrarAlerta('danger', 'Erro de conexão com o servidor');
+            }
+        });
+        
+        function mostrarAlerta(tipo, mensagem) {
+            const alertContainer = document.getElementById('alertContainer');
+            const icones = {
+                'success': 'check-circle',
+                'danger': 'exclamation-circle',
+                'warning': 'exclamation-triangle'
+            };
+            
+            alertContainer.innerHTML = `
+                <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+                    <i class="fas fa-${icones[tipo]}"></i> ${mensagem}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

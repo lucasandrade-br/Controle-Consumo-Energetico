@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}Energy Monitor | Importação de Dados{% endblock %}
+{% set active_page = 'admin' %}
+
+{% block extra_css %}
+<style>
+    .header-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    
+    .import-section {
+        background: white;
+        border-radius: 15px;
+        padding: 40px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        margin-bottom: 25px;
+    }
+    
+    .upload-area {
+        border: 3px dashed #667eea;
+        border-radius: 15px;
+        padding: 60px 20px;
+        text-align: center;
+        background: #f8f9ff;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    
+    .upload-area:hover {
+        background: #eff2ff;
+        border-color: #5568d3;
+    }
+    
+    .upload-area.dragover {
+        background: #e3e8ff;
+        border-color: #4557c2;
+    }
+    
+    .upload-icon {
+        font-size: 4rem;
+        color: #667eea;
+        margin-bottom: 20px;
+    }
+    
+    .btn-download-model {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        border: none;
+        color: white;
+        padding: 15px 30px;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    
+    .instruction-card {
+        background: #fff9e6;
+        border-left: 4px solid #ffc107;
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 30px;
+    }
+    
+    .result-section {
+        margin-top: 30px;
+        display: none;
+    }
+    
+    .spinner-border-custom {
+        width: 3rem;
+        height: 3rem;
+        border-width: 0.3rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Cabeçalho -->
+<div class="header-section">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1><i class="fas fa-file-import"></i> Importação de Dados Históricos</h1>
+            <p class="mb-0">Importe leituras antigas via planilha Excel</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="/admin/quadros" class="btn btn-light">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Alertas -->
+<div id="alertContainer"></div>
+
+<!-- Área de Upload -->
+<div class="import-section">
+    
+    <!-- Botão Download Modelo -->
+    <div class="text-center mb-4">
+        <a href="/admin/importacao/modelo" class="btn btn-download-model btn-lg">
+            <i class="fas fa-download"></i> Baixar Modelo de Planilha
+        </a>
+        <p class="text-muted mt-2">Baixe o modelo para preencher com seus dados</p>
+    </div>
+    
+    <hr class="my-4">
+    
+    <!-- Upload -->
+    <form id="formUpload" enctype="multipart/form-data">
+        <div class="upload-area" id="uploadArea">
+            <i class="fas fa-cloud-upload-alt upload-icon"></i>
+            <h4>Arraste o arquivo Excel aqui</h4>
+            <p class="text-muted">ou clique para selecionar</p>
+            <input type="file" id="arquivo" name="arquivo" accept=".xlsx,.xls" style="display: none;">
+            <p class="mt-3"><strong>Arquivo selecionado:</strong> <span id="nomeArquivo" class="text-primary">Nenhum</span></p>
+        </div>
+        
+        <div class="text-center mt-4">
+            <button type="submit" class="btn btn-primary btn-lg" id="btnImportar" disabled>
+                <i class="fas fa-upload"></i> Iniciar Importação
+            </button>
+        </div>
+    </form>
+    
+    <!-- Loading -->
+    <div id="loadingSection" class="text-center mt-4" style="display: none;">
+        <div class="spinner-border spinner-border-custom text-primary" role="status">
+            <span class="visually-hidden">Processando...</span>
+        </div>
+        <p class="mt-3 text-muted">Processando importação... Isso pode levar alguns minutos.</p>
+    </div>
+    
+    <!-- Resultado -->
+    <div id="resultSection" class="result-section">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-check-circle"></i> Resultado da Importação</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <h3 class="text-success" id="resultInseridos">0</h3>
+                        <p class="text-muted">Registros Inseridos</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h3 class="text-warning" id="resultDuplicados">0</h3>
+                        <p class="text-muted">Duplicados Ignorados</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h3 class="text-info" id="resultQuadros">0</h3>
+                        <p class="text-muted">Quadros Criados</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h3 class="text-danger" id="resultErros">0</h3>
+                        <p class="text-muted">Erros</p>
+                    </div>
+                </div>
+                
+                <div id="quadrosCriadosDiv" style="display: none;">
+                    <hr>
+                    <h6><i class="fas fa-plus-circle"></i> Novos Quadros Criados:</h6>
+                    <ul id="listaQuadrosCriados"></ul>
+                </div>
+                
+                <div id="errosDiv" style="display: none;">
+                    <hr>
+                    <h6 class="text-danger"><i class="fas fa-exclamation-triangle"></i> Erros Encontrados:</h6>
+                    <ul id="listaErros" class="text-danger"></ul>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="/" class="btn btn-success">
+                        <i class="fas fa-home"></i> Ir para Dashboard
+                    </a>
+                    <button class="btn btn-secondary" onclick="location.reload()">
+                        <i class="fas fa-redo"></i> Nova Importação
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Instruções -->
+    <div class="instruction-card">
+        <h5><i class="fas fa-info-circle"></i> Instruções Importantes</h5>
+        <ul class="mb-0">
+            <li><strong>Formato do arquivo:</strong> Excel (.xlsx ou .xls)</li>
+            <li><strong>Colunas obrigatórias:</strong> Data, Quadro, Localizacao, Leitura</li>
+            <li><strong>Formato da Data:</strong> DD/MM/AAAA ou DD/MM/AAAA HH:MM:SS</li>
+            <li><strong>Quadros novos:</strong> Serão criados automaticamente se não existirem</li>
+            <li><strong>Duplicatas:</strong> Registros com mesmo quadro e mesma data serão ignorados</li>
+            <li><strong>Consumo:</strong> Será calculado automaticamente após a importação</li>
+            <li><strong>Reset de medidor:</strong> Valores menores que o anterior serão detectados automaticamente</li>
+        </ul>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('arquivo');
+    const btnImportar = document.getElementById('btnImportar');
+    const formUpload = document.getElementById('formUpload');
+    
+    // Clique na área de upload
+    uploadArea.addEventListener('click', () => {
+        fileInput.click();
+    });
+    
+    // Seleção de arquivo
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            const fileName = e.target.files[0].name;
+            document.getElementById('nomeArquivo').textContent = fileName;
+            btnImportar.disabled = false;
+        }
+    });
+    
+    // Drag and Drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            const fileName = e.dataTransfer.files[0].name;
+            document.getElementById('nomeArquivo').textContent = fileName;
+            btnImportar.disabled = false;
+        }
+    });
+    
+    // Submissão do formulário
+    formUpload.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(formUpload);
+        
+        // Mostra loading
+        document.getElementById('loadingSection').style.display = 'block';
+        document.getElementById('resultSection').style.display = 'none';
+        btnImportar.disabled = true;
+        
+        try {
+            const response = await fetch('/admin/importacao/processar', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            // Esconde loading
+            document.getElementById('loadingSection').style.display = 'none';
+            
+            if (data.sucesso) {
+                // Mostra resultado
+                mostrarResultado(data.detalhes);
+            } else {
+                mostrarAlerta('danger', data.erro);
+                btnImportar.disabled = false;
+            }
+            
+        } catch (error) {
+            document.getElementById('loadingSection').style.display = 'none';
+            mostrarAlerta('danger', 'Erro de conexão com o servidor');
+            btnImportar.disabled = false;
+        }
+    });
+    
+    // Mostra resultado da importação
+    function mostrarResultado(detalhes) {
+        document.getElementById('resultInseridos').textContent = detalhes.registros_inseridos;
+        document.getElementById('resultDuplicados').textContent = detalhes.registros_duplicados;
+        document.getElementById('resultQuadros').textContent = detalhes.quadros_criados.length;
+        document.getElementById('resultErros').textContent = detalhes.erros.length;
+        
+        // Quadros criados
+        if (detalhes.quadros_criados.length > 0) {
+            const lista = document.getElementById('listaQuadrosCriados');
+            lista.innerHTML = '';
+            detalhes.quadros_criados.forEach(quadro => {
+                const li = document.createElement('li');
+                li.textContent = quadro;
+                lista.appendChild(li);
+            });
+            document.getElementById('quadrosCriadosDiv').style.display = 'block';
+        }
+        
+        // Erros
+        if (detalhes.erros.length > 0) {
+            const lista = document.getElementById('listaErros');
+            lista.innerHTML = '';
+            detalhes.erros.forEach(erro => {
+                const li = document.createElement('li');
+                li.textContent = erro;
+                lista.appendChild(li);
+            });
+            document.getElementById('errosDiv').style.display = 'block';
+        }
+        
+        document.getElementById('resultSection').style.display = 'block';
+        
+        // Scroll para o resultado
+        document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Mostrar Alertas
+    function mostrarAlerta(tipo, mensagem) {
+        const alertContainer = document.getElementById('alertContainer');
+        const icones = {
+            'success': 'check-circle',
+            'danger': 'exclamation-circle',
+            'warning': 'exclamation-triangle'
+        };
+        
+        alertContainer.innerHTML = `
+            <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+                <i class="fas fa-${icones[tipo]}"></i> ${mensagem}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        setTimeout(() => {
+            alertContainer.innerHTML = '';
+        }, 8000);
+    }
+</script>
+{% endblock %}

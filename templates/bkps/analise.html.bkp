@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Dados - Energia</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        body {
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        
+        .header-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .filter-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .chart-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .table-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        
+        #chartCanvas {
+            max-height: 400px;
+        }
+        
+        .badge-reset {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stats-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        
+        <!-- Cabeçalho -->
+        <div class="header-section">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1><i class="fas fa-chart-line"></i> Análise de Dados e Inteligência</h1>
+                    <p class="mb-0">Visualize e analise o consumo de energia por período</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="/" class="btn btn-light">
+                        <i class="fas fa-arrow-left"></i> Voltar ao Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Alertas -->
+        <div id="alertContainer"></div>
+        
+        <!-- Filtros -->
+        <div class="filter-section">
+            <h5 class="mb-4"><i class="fas fa-filter"></i> Filtros de Análise</h5>
+            
+            <form id="formFiltros">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label">Data Início</label>
+                        <input type="date" class="form-control" id="data_inicio" name="data_inicio" required>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label class="form-label">Data Fim</label>
+                        <input type="date" class="form-control" id="data_fim" name="data_fim" required>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label">Quadro de Energia</label>
+                        <select class="form-select" id="quadro_id" name="quadro_id">
+                            <option value="">Todos os Quadros</option>
+                            {% for quadro in quadros %}
+                            <option value="{{ quadro.id }}">{{ quadro.nome }} - {{ quadro.localizacao }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i> Filtrar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Estatísticas Rápidas -->
+        <div id="statsSection" style="display: none;">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="stats-card">
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <div class="stats-label">Total de Registros</div>
+                                <div class="stats-value" id="statTotalRegistros">0</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stats-label">Consumo Total (kWh)</div>
+                                <div class="stats-value" id="statConsumoTotal">0</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stats-label">Consumo Médio Diário (kWh)</div>
+                                <div class="stats-value" id="statConsumoMedio">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gráfico -->
+        <div id="chartSection" class="chart-section" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5><i class="fas fa-chart-area"></i> Gráfico de Consumo</h5>
+                
+                <div class="form-check form-switch toggle-switch">
+                    <input class="form-check-input" type="checkbox" id="toggleVisualizacao" checked>
+                    <label class="form-check-label" for="toggleVisualizacao">
+                        <strong>Visualizar Consumo Agrupado</strong>
+                    </label>
+                </div>
+            </div>
+            
+            <canvas id="chartCanvas"></canvas>
+        </div>
+        
+        <!-- Tabela de Dados -->
+        <div id="tableSection" class="table-section" style="display: none;">
+            <h5 class="mb-4"><i class="fas fa-table"></i> Detalhamento das Leituras</h5>
+            
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle" id="tabelaLeituras">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Quadro</th>
+                            <th>Localização</th>
+                            <th>Data</th>
+                            <th>Hora</th>
+                            <th class="text-end">Valor Leitura (kWh)</th>
+                            <th class="text-end">Consumo Dia (kWh)</th>
+                            <th class="text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaBody">
+                        <!-- Preenchido via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- JavaScript -->
+    <script>
+        let chartInstance = null;
+        let dadosGrafico = null;
+        
+        // Define datas padrão (últimos 30 dias)
+        window.addEventListener('DOMContentLoaded', () => {
+            const hoje = new Date();
+            const trintaDiasAtras = new Date();
+            trintaDiasAtras.setDate(hoje.getDate() - 30);
+            
+            document.getElementById('data_inicio').valueAsDate = trintaDiasAtras;
+            document.getElementById('data_fim').valueAsDate = hoje;
+            
+            // Carrega dados automaticamente
+            document.getElementById('formFiltros').dispatchEvent(new Event('submit'));
+        });
+        
+        // Submissão do Formulário de Filtros
+        document.getElementById('formFiltros').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const params = new URLSearchParams();
+            
+            for (const [key, value] of formData.entries()) {
+                if (value) params.append(key, value);
+            }
+            
+            try {
+                const response = await fetch(`/api/analise/dados?${params.toString()}`);
+                const data = await response.json();
+                
+                if (response.ok && data.sucesso) {
+                    dadosGrafico = data.grafico;
+                    renderizarGrafico();
+                    renderizarTabela(data.tabela);
+                    renderizarEstatisticas(data.tabela);
+                    
+                    // Mostra seções
+                    document.getElementById('statsSection').style.display = 'block';
+                    document.getElementById('chartSection').style.display = 'block';
+                    document.getElementById('tableSection').style.display = 'block';
+                } else {
+                    mostrarAlerta('danger', data.erro || 'Erro ao buscar dados');
+                }
+            } catch (error) {
+                mostrarAlerta('danger', 'Erro de conexão com o servidor');
+                console.error('Erro:', error);
+            }
+        });
+        
+        // Toggle de Visualização
+        document.getElementById('toggleVisualizacao').addEventListener('change', () => {
+            renderizarGrafico();
+        });
+        
+        // Renderizar Gráfico
+        function renderizarGrafico() {
+            if (!dadosGrafico) return;
+            
+            const ctx = document.getElementById('chartCanvas').getContext('2d');
+            const agrupado = document.getElementById('toggleVisualizacao').checked;
+            
+            // Destrói gráfico anterior
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            // Seleciona datasets baseado no modo
+            const datasets = agrupado ? dadosGrafico.dataset_agrupado : dadosGrafico.datasets_separados;
+            
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dadosGrafico.labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        title: {
+                            display: true,
+                            text: agrupado ? 'Consumo Total da Empresa' : 'Consumo por Quadro',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Consumo (kWh)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Data'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Renderizar Tabela
+        function renderizarTabela(dados) {
+            const tbody = document.getElementById('tabelaBody');
+            tbody.innerHTML = '';
+            
+            if (dados.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center text-muted">
+                            <i class="fas fa-info-circle"></i> Nenhum registro encontrado para os filtros aplicados.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            dados.forEach(leitura => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${leitura.id}</td>
+                    <td><strong>${leitura.quadro_nome}</strong></td>
+                    <td>${leitura.quadro_localizacao}</td>
+                    <td>${leitura.data_registro}</td>
+                    <td>${leitura.hora_registro}</td>
+                    <td class="text-end">${leitura.valor_leitura.toFixed(2)}</td>
+                    <td class="text-end"><strong>${leitura.consumo_dia.toFixed(2)}</strong></td>
+                    <td class="text-center">
+                        ${leitura.alerta_reset 
+                            ? '<span class="badge badge-reset"><i class="fas fa-exclamation-triangle"></i> Reset</span>'
+                            : '<span class="badge bg-success"><i class="fas fa-check"></i> Normal</span>'
+                        }
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // Renderizar Estatísticas
+        function renderizarEstatisticas(dados) {
+            const totalRegistros = dados.length;
+            const consumoTotal = dados.reduce((sum, item) => sum + item.consumo_dia, 0);
+            
+            // Calcula dias únicos
+            const datasUnicas = new Set(dados.map(item => item.data_registro));
+            const totalDias = datasUnicas.size || 1;
+            const consumoMedio = consumoTotal / totalDias;
+            
+            document.getElementById('statTotalRegistros').textContent = totalRegistros;
+            document.getElementById('statConsumoTotal').textContent = consumoTotal.toFixed(2);
+            document.getElementById('statConsumoMedio').textContent = consumoMedio.toFixed(2);
+        }
+        
+        // Mostrar Alertas
+        function mostrarAlerta(tipo, mensagem) {
+            const alertContainer = document.getElementById('alertContainer');
+            const icones = {
+                'success': 'check-circle',
+                'danger': 'exclamation-circle',
+                'warning': 'exclamation-triangle'
+            };
+            
+            alertContainer.innerHTML = `
+                <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+                    <i class="fas fa-${icones[tipo]}"></i> ${mensagem}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

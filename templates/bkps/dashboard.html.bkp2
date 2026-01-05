@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Monitor | Dashboard</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --sidebar-width: 260px;
+            --primary-color: #4F46E5; /* Indigo moderno */
+            --bg-color: #F3F4F6;
+            --text-primary: #111827;
+            --text-secondary: #6B7280;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* --- Sidebar Styling --- */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: white;
+            border-right: 1px solid #E5E7EB;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            z-index: 1000;
+        }
+
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 40px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            font-weight: 500;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .nav-link:hover {
+            background-color: #F9FAFB;
+            color: var(--primary-color);
+        }
+
+        .nav-link.active {
+            background-color: #EEF2FF;
+            color: var(--primary-color);
+        }
+
+        .nav-link i {
+            width: 20px;
+            text-align: center;
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 32px;
+        }
+
+        /* --- Cards --- */
+        .kpi-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid #E5E7EB;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            height: 100%;
+            transition: transform 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .kpi-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+        }
+
+        /* --- Table Styling --- */
+        .table-card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #E5E7EB;
+            overflow: hidden; /* Round corners for table */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .table-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            background-color: #F9FAFB;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 16px 24px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+        .table td {
+            padding: 16px 24px;
+            vertical-align: middle;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .fw-bold-dark {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* --- Status Badges (Soft UI) --- */
+        .badge-soft {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .badge-soft-success {
+            background-color: #ECFDF5;
+            color: #059669;
+        }
+
+        .badge-soft-warning {
+            background-color: #FFFBEB;
+            color: #D97706;
+        }
+        
+        .badge-soft-danger {
+            background-color: #FEF2F2;
+            color: #DC2626;
+        }
+
+        /* --- QR Code Widget in Sidebar --- */
+        .sidebar-footer {
+            margin-top: auto;
+            background: #F8FAFC;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .qr-thumbnail {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #E2E8F0;
+            padding: 5px;
+            background: white;
+        }
+
+        /* Mobile Responsive Adjustments */
+        @media (max-width: 992px) {
+            .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+            .main-content { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="brand">
+            <i class="fas fa-bolt"></i> ENERGY.io
+        </div>
+
+        <div class="nav flex-column">
+            <a href="/" class="nav-link active">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            <a href="/registrar" class="nav-link">
+                <i class="fas fa-plus-circle"></i> Nova Leitura
+            </a>
+            <a href="/revisao" class="nav-link d-flex justify-content-between">
+                <span><i class="fas fa-clipboard-check"></i> Revisão</span>
+                {% if total_rascunhos > 0 %}
+                <span class="badge bg-danger rounded-pill">{{ total_rascunhos }}</span>
+                {% endif %}
+            </a>
+            <a href="/analise" class="nav-link">
+                <i class="fas fa-chart-pie"></i> Relatórios
+            </a>
+            <a href="/admin/quadros" class="nav-link">
+                <i class="fas fa-cog"></i> Configurações
+            </a>
+        </div>
+
+        <div class="sidebar-footer">
+            <img src="{{ qrcode_img }}" alt="QR Code" class="qr-thumbnail">
+            <div style="font-size: 0.75rem; color: #64748B;">
+                Acesso Mobile
+            </div>
+            <div style="font-size: 0.7rem; font-family: monospace; color: #94A3B8; margin-top: 4px;">
+                {{ ip_local }}
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        
+        <div class="d-flex justify-content-between align-items-center mb-5">
+            <div>
+                <h2 class="fw-bold mb-1" style="color: var(--text-primary);">Visão Geral</h2>
+                <p class="text-muted mb-0">Monitoramento diário de consumo de energia.</p>
+            </div>
+            <div class="text-end">
+                <span class="text-muted small d-block">Data de Hoje</span>
+                <strong style="color: var(--text-primary);">{{ data_hoje }}</strong> </div>
+        </div>
+
+        <div class="row g-4 mb-5">
+            <div class="col-md-6 col-lg-4">
+                <div class="kpi-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="kpi-label">CONSUMO HOJE</div>
+                            <div class="kpi-value">{{ "%.0f"|format(consumo_hoje) }}<span class="fs-6 text-muted ms-1">kWh</span></div>
+                        </div>
+                        <div class="p-2 rounded bg-light text-primary">
+                            <i class="fas fa-bolt fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="kpi-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="kpi-label">MÉDIA (90 DIAS)</div>
+                            <div class="kpi-value">{{ "%.0f"|format(media_3_meses) }}<span class="fs-6 text-muted ms-1">kWh</span></div>
+                        </div>
+                        <div class="p-2 rounded bg-light text-info">
+                            <i class="fas fa-chart-line fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="kpi-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="kpi-label">PENDÊNCIAS</div>
+                            <div class="kpi-value">
+                                {% set pendentes = status_quadros | selectattr("status", "equalto", "Pendente") | list | length %}
+                                {{ pendentes }}
+                                <span class="fs-6 text-muted ms-1">Quadros</span>
+                            </div>
+                        </div>
+                        <div class="p-2 rounded bg-light {% if pendentes > 0 %}text-warning{% else %}text-success{% endif %}">
+                            <i class="fas fa-clipboard-list fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="table-header">
+                <h5 class="mb-0 fw-bold" style="color: var(--text-primary);">Status dos Medidores</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                    <i class="fas fa-sync-alt me-1"></i> Atualizar
+                </button>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Quadro / Local</th>
+                            <th class="text-end">Leitura Atual</th>
+                            <th class="text-end">Consumo (24h)</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-end">Último Reg.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for quadro in status_quadros %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; color: var(--primary-color);">
+                                        <i class="fas fa-charging-station"></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold-dark">{{ quadro.nome }}</div>
+                                        <div class="small text-muted">{{ quadro.localizacao }}</div>
+                                    </div>
+                                    {% if quadro.alerta_reset %}
+                                        <span class="badge badge-soft-danger ms-2" title="Reset de Medidor Detectado">Reset</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="text-end fw-bold-dark">{{ "%.0f"|format(quadro.valor_atual) }}</td>
+                            <td class="text-end">
+                                {% if quadro.consumo_hoje > 0 %}
+                                    <span class="text-success fw-bold">+{{ "%.0f"|format(quadro.consumo_hoje) }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if quadro.status == 'OK' %}
+                                    <span class="badge badge-soft-success">
+                                        <i class="fas fa-check me-1"></i> Finalizado
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge-soft-warning">
+                                        <i class="fas fa-clock me-1"></i> Pendente
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end text-muted small">
+                                {{ quadro.ultima_data }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i><br>
+                                Nenhum quadro cadastrado.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Refresh automático sutil a cada 60s
+        setTimeout(() => {
+            location.reload();
+        }, 60000);
+    </script>
+</body>
+</html>

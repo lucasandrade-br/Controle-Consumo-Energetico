@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+
+{% block title %}Energy Monitor | Relatórios{% endblock %}
+
+{% set active_page = 'analise' %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--text-primary);">Análise e Relatórios</h2>
+        <p class="text-muted mb-0">Visualize e analise o consumo de energia por período</p>
+    </div>
+</div>
+
+<!-- Alertas -->
+<div id="alertContainer"></div>
+
+<!-- Filtros -->
+<div class="kpi-card mb-4">
+    <h5 class="mb-4 fw-bold" style="color: var(--text-primary);"><i class="fas fa-filter me-2"></i>Filtros de Análise</h5>
+    
+    <form id="formFiltros">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Data Início</label>
+                <input type="date" class="form-control" id="data_inicio" name="data_inicio" required>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Data Fim</label>
+                <input type="date" class="form-control" id="data_fim" name="data_fim" required>
+            </div>
+            
+            <div class="col-md-4">
+                <label class="form-label">Quadro de Energia</label>
+                <select class="form-select" id="quadro_id" name="quadro_id">
+                    <option value="">Todos os Quadros</option>
+                    {% for quadro in quadros %}
+                    <option value="{{ quadro.id }}">{{ quadro.nome }} - {{ quadro.localizacao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-1"></i> Filtrar
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Estatísticas -->
+<div id="statsSection" style="display: none;">
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="kpi-label">TOTAL DE REGISTROS</div>
+                <div class="kpi-value" id="statTotalRegistros">0</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="kpi-label">CONSUMO TOTAL (kWh)</div>
+                <div class="kpi-value" id="statConsumoTotal">0</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="kpi-label">CONSUMO MÉDIO DIÁRIO (kWh)</div>
+                <div class="kpi-value" id="statConsumoMedio">0</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico -->
+<div id="chartSection" class="kpi-card mb-4" style="display: none;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h5 class="mb-0 fw-bold" style="color: var(--text-primary);"><i class="fas fa-chart-area me-2"></i>Gráfico de Consumo</h5>
+        
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="toggleVisualizacao" checked>
+            <label class="form-check-label fw-semibold" for="toggleVisualizacao">
+                Agrupar Consumo
+            </label>
+        </div>
+    </div>
+    
+    <canvas id="chartCanvas" style="max-height: 400px;"></canvas>
+</div>
+
+<!-- Tabela -->
+<div id="tableSection" class="table-card" style="display: none;">
+    <div class="table-header">
+        <h5 class="mb-0 fw-bold" style="color: var(--text-primary);">Detalhamento das Leituras</h5>
+        
+        <div class="rows-per-page">
+            <label for="rowsPerPage">Linhas por página:</label>
+            <select id="rowsPerPage">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Quadro</th>
+                    <th>Localização</th>
+                    <th>Data</th>
+                    <th>Hora</th>
+                    <th class="text-end">Valor Leitura (kWh)</th>
+                    <th class="text-end">Consumo Dia (kWh)</th>
+                    <th class="text-center">Status</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaBody">
+                <!-- Preenchido via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="pagination-controls">
+        <div class="pagination-info">
+            Mostrando <span id="showingFrom">0</span> até <span id="showingTo">0</span> de <span id="totalRecords">0</span> registros
+        </div>
+        
+        <div class="pagination-buttons">
+            <button class="pagination-btn" id="btnFirst">
+                <i class="fas fa-angle-double-left"></i>
+            </button>
+            <button class="pagination-btn" id="btnPrev">
+                <i class="fas fa-angle-left"></i>
+            </button>
+            
+            <div id="pageNumbers"></div>
+            
+            <button class="pagination-btn" id="btnNext">
+                <i class="fas fa-angle-right"></i>
+            </button>
+            <button class="pagination-btn" id="btnLast">
+                <i class="fas fa-angle-double-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let chartInstance = null;
+    let dadosGrafico = null;
+    let dadosTabelaCompletos = [];
+    let paginaAtual = 1;
+    let linhasPorPagina = 25;
+    
+    window.addEventListener('DOMContentLoaded', () => {
+        const hoje = new Date();
+        const trintaDiasAtras = new Date();
+        trintaDiasAtras.setDate(hoje.getDate() - 30);
+        
+        document.getElementById('data_inicio').valueAsDate = trintaDiasAtras;
+        document.getElementById('data_fim').valueAsDate = hoje;
+        
+        document.getElementById('formFiltros').dispatchEvent(new Event('submit'));
+    });
+    
+    document.getElementById('formFiltros').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const params = new URLSearchParams();
+        
+        for (const [key, value] of formData.entries()) {
+            if (value) params.append(key, value);
+        }
+        
+        try {
+            const response = await fetch(`/api/analise/dados?${params.toString()}`);
+            const data = await response.json();
+            
+            if (response.ok && data.sucesso) {
+                dadosGrafico = data.grafico;
+                renderizarGrafico();
+                renderizarTabela(data.tabela);
+                renderizarEstatisticas(data.tabela);
+                
+                document.getElementById('statsSection').style.display = 'block';
+                document.getElementById('chartSection').style.display = 'block';
+                document.getElementById('tableSection').style.display = 'block';
+            } else {
+                mostrarAlerta('danger', data.erro || 'Erro ao buscar dados');
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro de conexão com o servidor');
+            console.error('Erro:', error);
+        }
+    });
+    
+    document.getElementById('toggleVisualizacao').addEventListener('change', () => {
+        renderizarGrafico();
+    });
+    
+    function renderizarGrafico() {
+        if (!dadosGrafico) return;
+        
+        const ctx = document.getElementById('chartCanvas').getContext('2d');
+        const agrupado = document.getElementById('toggleVisualizacao').checked;
+        
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+        
+        const datasets = agrupado ? dadosGrafico.dataset_agrupado : dadosGrafico.datasets_separados;
+        
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dadosGrafico.labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    title: {
+                        display: true,
+                        text: agrupado ? 'Consumo Total da Empresa' : 'Consumo por Quadro',
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Consumo (kWh)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Data'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function renderizarTabela(dados) {
+        dadosTabelaCompletos = dados;
+        paginaAtual = 1;
+        renderizarPaginaAtual();
+    }
+    
+    function renderizarPaginaAtual() {
+        const tbody = document.getElementById('tabelaBody');
+        tbody.innerHTML = '';
+        
+        if (dadosTabelaCompletos.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-5">
+                        <i class="fas fa-info-circle fa-2x mb-2 opacity-25"></i><br>
+                        Nenhum registro encontrado para os filtros aplicados.
+                    </td>
+                </tr>
+            `;
+            atualizarControlesPaginacao();
+            return;
+        }
+        
+        const inicio = (paginaAtual - 1) * linhasPorPagina;
+        const fim = Math.min(inicio + linhasPorPagina, dadosTabelaCompletos.length);
+        const dadosPagina = dadosTabelaCompletos.slice(inicio, fim);
+        
+        dadosPagina.forEach(leitura => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${leitura.id}</td>
+                <td class="fw-bold-dark">${leitura.quadro_nome}</td>
+                <td>${leitura.quadro_localizacao}</td>
+                <td>${leitura.data_registro}</td>
+                <td>${leitura.hora_registro}</td>
+                <td class="text-end">${leitura.valor_leitura.toFixed(2)}</td>
+                <td class="text-end fw-bold-dark">${leitura.consumo_dia.toFixed(2)}</td>
+                <td class="text-center">
+                    ${leitura.alerta_reset 
+                        ? '<span class="badge badge-soft-warning"><i class="fas fa-exclamation-triangle"></i> Reset</span>'
+                        : '<span class="badge badge-soft-success"><i class="fas fa-check"></i> Normal</span>'
+                    }
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        atualizarControlesPaginacao();
+    }
+    
+    function atualizarControlesPaginacao() {
+        const totalPaginas = Math.ceil(dadosTabelaCompletos.length / linhasPorPagina);
+        const inicio = dadosTabelaCompletos.length > 0 ? (paginaAtual - 1) * linhasPorPagina + 1 : 0;
+        const fim = Math.min(paginaAtual * linhasPorPagina, dadosTabelaCompletos.length);
+        
+        document.getElementById('showingFrom').textContent = inicio;
+        document.getElementById('showingTo').textContent = fim;
+        document.getElementById('totalRecords').textContent = dadosTabelaCompletos.length;
+        
+        document.getElementById('btnFirst').disabled = paginaAtual === 1;
+        document.getElementById('btnPrev').disabled = paginaAtual === 1;
+        document.getElementById('btnNext').disabled = paginaAtual === totalPaginas || totalPaginas === 0;
+        document.getElementById('btnLast').disabled = paginaAtual === totalPaginas || totalPaginas === 0;
+        
+        renderizarNumerosPaginas(totalPaginas);
+    }
+    
+    function renderizarNumerosPaginas(totalPaginas) {
+        const pageNumbers = document.getElementById('pageNumbers');
+        pageNumbers.innerHTML = '';
+        
+        if (totalPaginas <= 1) return;
+        
+        let paginasVisiveis = [];
+        
+        if (totalPaginas <= 7) {
+            for (let i = 1; i <= totalPaginas; i++) {
+                paginasVisiveis.push(i);
+            }
+        } else {
+            if (paginaAtual <= 4) {
+                paginasVisiveis = [1, 2, 3, 4, 5, '...', totalPaginas];
+            } else if (paginaAtual >= totalPaginas - 3) {
+                paginasVisiveis = [1, '...', totalPaginas - 4, totalPaginas - 3, totalPaginas - 2, totalPaginas - 1, totalPaginas];
+            } else {
+                paginasVisiveis = [1, '...', paginaAtual - 1, paginaAtual, paginaAtual + 1, '...', totalPaginas];
+            }
+        }
+        
+        paginasVisiveis.forEach(num => {
+            if (num === '...') {
+                const span = document.createElement('span');
+                span.textContent = '...';
+                span.style.padding = '8px';
+                span.style.color = 'var(--text-secondary)';
+                pageNumbers.appendChild(span);
+            } else {
+                const btn = document.createElement('button');
+                btn.className = 'pagination-btn' + (num === paginaAtual ? ' active' : '');
+                btn.textContent = num;
+                btn.addEventListener('click', () => irParaPagina(num));
+                pageNumbers.appendChild(btn);
+            }
+        });
+    }
+    
+    function irParaPagina(pagina) {
+        paginaAtual = pagina;
+        renderizarPaginaAtual();
+    }
+    
+    document.getElementById('btnFirst').addEventListener('click', () => irParaPagina(1));
+    document.getElementById('btnPrev').addEventListener('click', () => irParaPagina(Math.max(1, paginaAtual - 1)));
+    document.getElementById('btnNext').addEventListener('click', () => {
+        const totalPaginas = Math.ceil(dadosTabelaCompletos.length / linhasPorPagina);
+        irParaPagina(Math.min(totalPaginas, paginaAtual + 1));
+    });
+    document.getElementById('btnLast').addEventListener('click', () => {
+        const totalPaginas = Math.ceil(dadosTabelaCompletos.length / linhasPorPagina);
+        irParaPagina(totalPaginas);
+    });
+    
+    document.getElementById('rowsPerPage').addEventListener('change', (e) => {
+        linhasPorPagina = parseInt(e.target.value);
+        paginaAtual = 1;
+        renderizarPaginaAtual();
+    });
+    
+    function renderizarEstatisticas(dados) {
+        const totalRegistros = dados.length;
+        const consumoTotal = dados.reduce((sum, item) => sum + item.consumo_dia, 0);
+        
+        const datasUnicas = new Set(dados.map(item => item.data_registro));
+        const totalDias = datasUnicas.size || 1;
+        const consumoMedio = consumoTotal / totalDias;
+        
+        document.getElementById('statTotalRegistros').textContent = totalRegistros;
+        document.getElementById('statConsumoTotal').textContent = consumoTotal.toFixed(2);
+        document.getElementById('statConsumoMedio').textContent = consumoMedio.toFixed(2);
+    }
+    
+    function mostrarAlerta(tipo, mensagem) {
+        const alertContainer = document.getElementById('alertContainer');
+        const icones = {
+            'success': 'check-circle',
+            'danger': 'exclamation-circle',
+            'warning': 'exclamation-triangle'
+        };
+        
+        alertContainer.innerHTML = `
+            <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+                <i class="fas fa-${icones[tipo]}"></i> ${mensagem}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        setTimeout(() => {
+            alertContainer.innerHTML = '';
+        }, 5000);
+    }
+</script>
+{% endblock %}
