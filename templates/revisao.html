@@ -19,7 +19,7 @@
         </div>
         
         <!-- Botões de Controle -->
-        <button id="btnIniciarSessao" class="btn btn-primary" onclick="iniciarSessao()">
+        <button id="btnIniciarSessao" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalIniciarSessao">
             <i class="fas fa-play me-2"></i> Iniciar Sessão
         </button>
         <button id="btnCancelarSessao" class="btn btn-outline-danger d-none" onclick="cancelarSessao()">
@@ -151,6 +151,7 @@
     <i class="fas fa-check-double me-2"></i> Finalizar Processo
 </button>
 
+
 {% else %}
 <!-- Nenhum rascunho -->
 <div class="table-card">
@@ -158,12 +159,67 @@
         <i class="fas fa-inbox fa-4x mb-3 opacity-25" style="color: var(--text-secondary);"></i>
         <h5 class="text-muted">Nenhum rascunho pendente de revisão</h5>
         <p class="text-muted">Todas as leituras foram consolidadas.</p>
-        <a href="/registrar" class="btn btn-primary mt-3">
-            <i class="fas fa-plus me-2"></i> Registrar Leituras
-        </a>
     </div>
 </div>
+
 {% endif %}
+
+<a href="/registrar" id="btnRegistrarLeituras" class="btn btn-primary mt-3 d-none">
+    <i class="fas fa-plus me-2"></i> Registrar Leituras
+</a>
+
+<!-- Modal de Iniciar Sessão -->
+<div class="modal fade" id="modalIniciarSessao" tabindex="-1" aria-labelledby="modalIniciarSessaoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: none;">
+            <div class="modal-header" style="border-bottom: 1px solid #E5E7EB;">
+                <h5 class="modal-title fw-bold" id="modalIniciarSessaoLabel" style="color: var(--text-primary);">
+                    <i class="fas fa-calendar-alt me-2" style="color: var(--primary-color);"></i>
+                    Iniciar Nova Sessão de Leitura
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+                <div class="alert alert-info d-flex align-items-start" style="background-color: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px;">
+                    <i class="fas fa-info-circle me-2 mt-1" style="color: #3B82F6;"></i>
+                    <div style="color: #1E40AF; font-size: 0.9rem;">
+                        Selecione a data das leituras que serão registradas. Por padrão, é a data de hoje, mas você pode registrar leituras de dias anteriores.
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="dataReferencia" class="form-label fw-semibold" style="color: var(--text-primary);">
+                        <i class="fas fa-calendar me-2"></i>Data das Leituras
+                    </label>
+                    <input type="date" 
+                           class="form-control form-control-lg" 
+                           id="dataReferencia" 
+                           style="border-radius: 10px; border: 2px solid #E5E7EB;"
+                           required>
+                    <div class="form-text" style="margin-top: 8px;">
+                        <i class="fas fa-lightbulb me-1" style="color: #F59E0B;"></i>
+                        Esqueceu de registrar ontem? Selecione a data correta!
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning mb-0 d-flex align-items-start" style="background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px;">
+                    <i class="fas fa-exclamation-triangle me-2 mt-1" style="color: #D97706;"></i>
+                    <div style="color: #92400E; font-size: 0.85rem;">
+                        <strong>Atenção:</strong> Ao iniciar, todos os rascunhos pendentes serão excluídos.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid #E5E7EB;">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="confirmarInicioSessao()">
+                    <i class="fas fa-check me-2"></i>Iniciar Sessão
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Modal: Editar Rascunho -->
 <div class="modal fade" id="modalEditarRascunho" tabindex="-1">
@@ -294,7 +350,9 @@
             if (response.ok) {
                 modalEditarRascunho.hide();
                 mostrarAlerta('success', data.mensagem);
-                setTimeout(() => location.reload(), 1500);
+                
+                // Atualiza apenas os rascunhos sem recarregar a página
+                await atualizarRascunhosDinamicamente();
             } else {
                 mostrarAlerta('danger', data.erro);
             }
@@ -503,13 +561,80 @@
     // Verifica status da sessão ao carregar
     verificarStatusSessao();
     
+    // Inicializa data de hoje no campo de data do modal
+    document.addEventListener('DOMContentLoaded', function() {
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+        const dia = String(hoje.getDate()).padStart(2, '0');
+        const dataInput = document.getElementById('dataReferencia');
+        if (dataInput) {
+            dataInput.value = `${ano}-${mes}-${dia}`;
+        }
+    });
+    
+    async function confirmarInicioSessao() {
+        const dataReferencia = document.getElementById('dataReferencia').value;
+        
+        if (!dataReferencia) {
+            alert('Por favor, selecione a data das leituras.');
+            return;
+        }
+        
+        // Formata a data selecionada para exibição
+        const dataObj = new Date(dataReferencia + 'T00:00:00');
+        const dataFormatada = dataObj.toLocaleDateString('pt-BR');
+        
+        try {
+            mostrarLoading('Iniciando sessão...');
+            
+            const response = await fetch('/api/sessao/iniciar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data_referencia: dataReferencia })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Fecha o modal
+                const modalElement = document.getElementById('modalIniciarSessao');
+                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                if (modalInstance) modalInstance.hide();
+                
+                mostrarAlerta('success', `Sessão iniciada para ${dataFormatada}! ${data.mensagem || 'Operadores já podem registrar leituras.'}`);
+                sessaoAtiva = true;
+                atualizarUIStatus(true, dataFormatada);
+                iniciarPolling();
+                
+                // Se tinha rascunhos e foram deletados, limpa a tabela
+                if (data.mensagem && data.mensagem.includes('removido')) {
+                    limparTabelaRascunhos();
+                }
+            } else {
+                mostrarAlerta('danger', data.mensagem || 'Erro ao iniciar sessão');
+            }
+        } catch (error) {
+            mostrarAlerta('danger', 'Erro de conexão ao iniciar sessão');
+        } finally {
+            ocultarLoading();
+        }
+    }
+    
     async function verificarStatusSessao() {
         try {
             const response = await fetch('/api/sessao/status');
             const data = await response.json();
             
             sessaoAtiva = data.ativa;
-            atualizarUIStatus(data.ativa);
+            
+            // Pega data de referência se sessão está ativa
+            let dataFormatada = null;
+            if (data.ativa && data.sessao && data.sessao.data_referencia) {
+                dataFormatada = data.sessao.data_referencia;
+            }
+            
+            atualizarUIStatus(data.ativa, dataFormatada);
             
             // Se sessão está ativa, inicia polling
             if (data.ativa && !pollingInterval) {
@@ -520,46 +645,29 @@
         }
     }
     
-    function atualizarUIStatus(ativa) {
+    function atualizarUIStatus(ativa, dataReferencia = null) {
         const badgeSessao = document.getElementById('badgeSessao');
         const btnIniciar = document.getElementById('btnIniciarSessao');
         const btnCancelar = document.getElementById('btnCancelarSessao');
+        const btnRegistrar = document.getElementById('btnRegistrarLeituras');
         const btnFloat = document.querySelector('.btn-float');
         
         if (ativa) {
-            badgeSessao.innerHTML = '<i class="fas fa-circle me-1" style="color: #dc2626; animation: pulse 1.5s infinite;"></i> AO VIVO';
+            const textoData = dataReferencia ? ` - ${dataReferencia}` : '';
+            badgeSessao.innerHTML = `<i class="fas fa-circle me-1" style="color: #dc2626; animation: pulse 1.5s infinite;"></i> AO VIVO${textoData}`;
             badgeSessao.className = 'badge badge-soft-danger';
             btnIniciar.classList.add('d-none');
             btnCancelar.classList.remove('d-none');
+            if (btnRegistrar) btnRegistrar.classList.remove('d-none');
             if (btnFloat) btnFloat.textContent = 'Finalizar e Consolidar';
         } else {
             badgeSessao.innerHTML = '<i class="fas fa-circle-stop"></i> Inativa';
             badgeSessao.className = 'badge badge-soft-secondary';
+            badgeSessao.style.color = '#374151'; // Cor escura para melhor visibilidade
             btnIniciar.classList.remove('d-none');
             btnCancelar.classList.add('d-none');
+            if (btnRegistrar) btnRegistrar.classList.add('d-none');
             if (btnFloat) btnFloat.innerHTML = '<i class="fas fa-check-double me-2"></i> Finalizar Processo';
-        }
-    }
-    
-    async function iniciarSessao() {
-        try {
-            const response = await fetch('/api/sessao/iniciar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok) {
-                mostrarAlerta('success', 'Sessão iniciada! Operadores já podem registrar leituras.');
-                sessaoAtiva = true;
-                atualizarUIStatus(true);
-                iniciarPolling();
-            } else {
-                mostrarAlerta('danger', data.mensagem || 'Erro ao iniciar sessão');
-            }
-        } catch (error) {
-            mostrarAlerta('danger', 'Erro de conexão ao iniciar sessão');
         }
     }
     
@@ -582,10 +690,8 @@
                 atualizarUIStatus(false);
                 pararPolling();
                 
-                // Recarrega página após 2s
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
+                // Limpa tabela de rascunhos
+                limparTabelaRascunhos();
             } else {
                 mostrarAlerta('danger', data.mensagem || 'Erro ao cancelar sessão');
             }
@@ -771,6 +877,36 @@
     
     // Para polling ao sair da página
     window.addEventListener('beforeunload', pararPolling);
+    
+    function limparTabelaRascunhos() {
+        // Limpa todas as linhas da tabela de rascunhos
+        const tbody = document.querySelector('.table tbody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center py-5 text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i><br>
+                        Nenhum rascunho pendente de revisão
+                    </td>
+                </tr>
+            `;
+        }
+        
+        // Atualiza KPIs para zero
+        const kpiCards = document.querySelectorAll('.kpi-value');
+        if (kpiCards.length >= 4) {
+            kpiCards[0].textContent = '0'; // Total
+            kpiCards[1].textContent = '0'; // Normais
+            kpiCards[2].textContent = '0'; // Alertas
+            kpiCards[3].textContent = '0'; // Críticos
+        }
+        
+        // Oculta botão de consolidação se existir
+        const btnFloat = document.querySelector('.btn-float');
+        if (btnFloat) {
+            btnFloat.style.display = 'none';
+        }
+    }
     
     function mostrarAlerta(tipo, mensagem) {
         const alertContainer = document.getElementById('alertContainer');

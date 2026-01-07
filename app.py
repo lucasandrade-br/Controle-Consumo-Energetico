@@ -122,6 +122,7 @@ class SessaoLeitura(db.Model):
     ativa = db.Column(db.Boolean, default=True, nullable=False)
     data_inicio = db.Column(db.DateTime, default=datetime.now, nullable=False)
     data_fim = db.Column(db.DateTime, nullable=True)
+    data_referencia = db.Column(db.Date, default=datetime.now().date, nullable=False)  # Data que está sendo registrada
     iniciada_por = db.Column(db.String(100), default='Supervisor', nullable=False)
     
     def __repr__(self):
@@ -134,6 +135,7 @@ class SessaoLeitura(db.Model):
             'ativa': self.ativa,
             'data_inicio': self.data_inicio.strftime('%d/%m/%Y %H:%M:%S'),
             'data_fim': self.data_fim.strftime('%d/%m/%Y %H:%M:%S') if self.data_fim else None,
+            'data_referencia': self.data_referencia.strftime('%d/%m/%Y'),
             'iniciada_por': self.iniciada_por
         }
 
@@ -142,11 +144,63 @@ class SessaoLeitura(db.Model):
 # FUNÇÕES DE INICIALIZAÇÃO
 # ========================================
 
+def migrar_banco_se_necessario():
+    """Verifica e aplica migrações necessárias no banco de dados"""
+    import sqlite3
+    
+    db_path = 'instance/energia.db'
+    
+    # Verifica se o banco existe
+    if not os.path.exists(db_path):
+        return  # Banco novo, será criado com a estrutura correta
+    
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Verifica se a coluna 'data_referencia' existe na tabela 'sessoes_leitura'
+        cursor.execute("PRAGMA table_info(sessoes_leitura)")
+        colunas = [coluna[1] for coluna in cursor.fetchall()]
+        
+        if 'data_referencia' not in colunas:
+            print("🔄 Aplicando migração: adicionando coluna 'data_referencia'...")
+            
+            # Adiciona a coluna com valor padrão
+            cursor.execute("""
+                ALTER TABLE sessoes_leitura 
+                ADD COLUMN data_referencia DATE DEFAULT (DATE('now'))
+            """)
+            
+            # Atualiza registros existentes para usar a data de início como referência
+            cursor.execute("""
+                UPDATE sessoes_leitura 
+                SET data_referencia = DATE(data_inicio)
+                WHERE data_referencia IS NULL
+            """)
+            
+            conn.commit()
+            print("✅ Migração aplicada com sucesso!")
+        
+        conn.close()
+        
+    except sqlite3.OperationalError as e:
+        if "duplicate column name" not in str(e):
+            print(f"⚠️ Aviso na migração: {e}")
+    except Exception as e:
+        print(f"⚠️ Erro inesperado na migração: {e}")
+
+
 def inicializar_banco():
-    """Cria as tabelas no banco de dados"""
+    """Cria as tabelas no banco de dados e aplica migrações"""
     with app.app_context():
+        # Aplica migrações antes de criar/atualizar tabelas
+        migrar_banco_se_necessario()
+        
+        # Cria/atualiza tabelas
         db.create_all()
         print("✅ Banco de dados inicializado!")
+        
+        # Popula dados de exemplo se necessário
         popular_dados_exemplo()
 
 
@@ -367,19 +421,23 @@ def registrar():
             # Verifica se já existe um rascunho para este quadro
             rascunho_existente = LeituraRascunho.query.filter_by(quadro_id=quadro_id).first()
             
+            # Usa a data de referência da sessão ativa
+            data_registro = datetime.combine(sessao_ativa.data_referencia, datetime.now().time())
+            
             if rascunho_existente:
                 # Atualiza o rascunho existente
                 rascunho_existente.valor_leitura = novo_valor
                 rascunho_existente.consumo_provisorio = consumo_provisorio
                 rascunho_existente.alerta_reset = alerta_reset
-                rascunho_existente.data_registro = datetime.now()
+                rascunho_existente.data_registro = data_registro
             else:
                 # Cria novo rascunho
                 rascunho_existente = LeituraRascunho(
                     quadro_id=quadro_id,
                     valor_leitura=novo_valor,
                     consumo_provisorio=consumo_provisorio,
-                    alerta_reset=alerta_reset
+                    alerta_reset=alerta_reset,
+                    data_registro=data_registro
                 )
                 db.session.add(rascunho_existente)
             
@@ -426,6 +484,10 @@ def confirmar_reset():
                 'erro': 'Quadro não encontrado.'
             }), 404
         
+        # Busca sessão ativa para obter data de referência
+        sessao_ativa = SessaoLeitura.query.filter_by(ativa=True).first()
+        data_registro = datetime.combine(sessao_ativa.data_referencia, datetime.now().time()) if sessao_ativa else datetime.now()
+        
         # Verifica se já existe um rascunho para este quadro
         rascunho_existente = LeituraRascunho.query.filter_by(quadro_id=quadro_id).first()
         
@@ -434,14 +496,15 @@ def confirmar_reset():
             rascunho_existente.valor_leitura = novo_valor
             rascunho_existente.consumo_provisorio = novo_valor  # Considera o novo valor como consumo total
             rascunho_existente.alerta_reset = True
-            rascunho_existente.data_registro = datetime.now()
+            rascunho_existente.data_registro = data_registro
         else:
             # Cria novo rascunho com alerta de reset
             rascunho_existente = LeituraRascunho(
                 quadro_id=quadro_id,
                 valor_leitura=novo_valor,
                 consumo_provisorio=novo_valor,  # Considera o novo valor como consumo total
-                alerta_reset=True  # Marca que houve reset/virada do medidor
+                alerta_reset=True,  # Marca que houve reset/virada do medidor
+                data_registro=data_registro
             )
             db.session.add(rascunho_existente)
         
@@ -1400,14 +1463,37 @@ def api_sessao_iniciar():
                 'mensagem': 'Já existe uma sessão ativa'
             }), 400
         
+        # Recebe data de referência (data que está sendo registrada)
+        data_str = request.form.get('data_referencia') or request.json.get('data_referencia') if request.is_json else None
+        
+        if data_str:
+            try:
+                # Converte string para date
+                data_referencia = datetime.strptime(data_str, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({
+                    'sucesso': False,
+                    'mensagem': 'Formato de data inválido. Use YYYY-MM-DD'
+                }), 400
+        else:
+            # Se não informada, usa a data de hoje
+            data_referencia = datetime.now().date()
+        
+        # Limpa todos os rascunhos antes de iniciar nova sessão
+        rascunhos_deletados = LeituraRascunho.query.delete()
+        
         # Cria nova sessão
-        nova_sessao = SessaoLeitura(ativa=True, iniciada_por='Supervisor')
+        nova_sessao = SessaoLeitura(
+            ativa=True, 
+            iniciada_por='Supervisor',
+            data_referencia=data_referencia
+        )
         db.session.add(nova_sessao)
         db.session.commit()
         
         return jsonify({
             'sucesso': True,
-            'mensagem': 'Sessão iniciada com sucesso',
+            'mensagem': f'Sessão iniciada para {data_referencia.strftime("%d/%m/%Y")}. {rascunhos_deletados} rascunho(s) removido(s).',
             'sessao': nova_sessao.to_dict()
         })
         
