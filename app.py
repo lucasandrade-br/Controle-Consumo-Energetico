@@ -206,7 +206,7 @@ def inicializar_banco():
 
 def popular_dados_exemplo():
     """Popula o banco com quadros de exemplo se estiver vazio"""
-    if Quadro.query.count() == 0:
+    """if Quadro.query.count() == 0:
         quadros_exemplo = [
             Quadro(nome='Galpão A', localizacao='Área de Produção', ativo=True),
             Quadro(nome='Escritório', localizacao='Prédio Administrativo', ativo=True),
@@ -219,7 +219,7 @@ def popular_dados_exemplo():
         db.session.commit()
         print("✅ Dados de exemplo criados:")
         for quadro in quadros_exemplo:
-            print(f"   - {quadro.nome} ({quadro.localizacao})")
+            print(f"   - {quadro.nome} ({quadro.localizacao})")"""
 
 
 # ========================================
@@ -1445,6 +1445,9 @@ def recalcular_consumo_quadro(quadro_id):
                 leitura.alerta_reset = True
         
         leitura_anterior = leitura
+    
+    # Salva as alterações no banco de dados
+    db.session.commit()
 
 
 # ========================================
